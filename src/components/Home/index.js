@@ -18,8 +18,6 @@ const Button = styled(ButtonComponent)`
 
 const Wrapper = styled.div`
   height: 100%;
-  display: flex;
-  flex-direction: column;
 `
 
 const Content = styled.div`
@@ -27,7 +25,7 @@ const Content = styled.div`
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  flex: 1;
+  height: 100%;
   font-size: 2rem;
 `
 

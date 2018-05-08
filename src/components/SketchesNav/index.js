@@ -7,30 +7,20 @@ const Wrapper = styled.nav`
   margin-bottom: 2rem;
 `
 
-const SketchesNav = ({ items, sceneId, onNavItemClick, currentSketchId }) => (
+const SketchesNav = ({ items }) => (
   <Wrapper>
     <ul>
       {items.map(item => (
         <li key={item.id}>
-          <NavItem
-            isActive={item.id === currentSketchId}
-            onClick={() => { onNavItemClick(sceneId, item.id) }}
-          >
-            {item.title}
-          </NavItem>
+          <NavItem activeClassName='active' to={`/sketches/view/${item.id}`}>{item.title}</NavItem>
         </li>
       ))}
-      <li><NavItem className='last' to={`/scenes/addSketch/${sceneId}`}>+</NavItem></li>
+      <li><NavItem className='last' to='/sketches/add'>+</NavItem></li>
     </ul>
   </Wrapper>
 )
 
 SketchesNav.propTypes = {
-  currentSketchId: PropTypes.oneOfType([
-    PropTypes.string, PropTypes.bool
-  ]).isRequired,
-  sceneId: PropTypes.string.isRequired,
-  onNavItemClick: PropTypes.func.isRequired,
   items: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string,

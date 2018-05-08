@@ -1,12 +1,10 @@
 import { call, select, takeEvery, put } from 'redux-saga/effects'
 import { save, load } from '../../utils/file'
 import { getProjectData, getProjectFilepath } from './selectors'
-import getCurrentSceneId from '../../selectors/getCurrentSceneId'
 import { projectLoadSuccess, projectRehydrate, projectError, projectSaveAs,
   projectErrorAdd, projectErrorPopupOpen, projectErrorPopupClose,
   projectSave, projectLoadRequest, projectFilepathUpdate, projectSketchesPathUpdate
 } from './actions'
-import { uSceneCreate } from '../scenes/actions'
 import history from '../../history'
 import { remote } from 'electron'
 
@@ -68,7 +66,6 @@ export function* loadProjectRequest () {
 
 export function* chooseSketchesFolder (dispatch, action) {
   const p = action.payload
-  const sceneId = yield select(getCurrentSceneId)
   remote.dialog.showOpenDialog({
     properties: ['openDirectory']
   },
@@ -78,10 +75,7 @@ export function* chooseSketchesFolder (dispatch, action) {
       dispatch(projectLoadSuccess())
       dispatch(projectErrorPopupClose())
       if (!p.disableRedirect) {
-        history.push(`/scenes/addSketch/${sceneId}`)
-      }
-      if (p.createSceneAfter) {
-        dispatch(uSceneCreate())
+        history.push('/sketches/add')
       }
     }
   })

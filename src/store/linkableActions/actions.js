@@ -12,13 +12,6 @@ export function linkableActionDelete (id) {
   }
 }
 
-export function rLinkableActionDelete (id) {
-  return {
-    type: 'R_LINKABLE_ACTION_DELETE',
-    payload: { id }
-  }
-}
-
 export function linkableActionInputLinkAdd (id, linkId) {
   return {
     type: 'LINKABLE_ACTION_INPUT_LINK_ADD',

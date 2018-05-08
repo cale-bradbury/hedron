@@ -1,4 +1,4 @@
-import { setOutput, stopOutput } from './engine/renderer.js'
+import world from './engine/world.js'
 import { screen, ipcRenderer } from 'electron'
 import { displaysListUpdate } from './store/displays/actions'
 let store
@@ -30,11 +30,11 @@ export const sendOutput = (index) => {
   outputWin.document.body.style.cursor = 'none'
 
   outputWin.addEventListener('beforeunload', () => {
-    stopOutput()
+    world.stopOutput()
   })
 
   setTimeout(() => {
-    setOutput(outputWin)
+    world.setOutput(outputWin)
   }, 1000)
 }
 

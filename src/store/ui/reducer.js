@@ -1,11 +1,8 @@
-import { LOCATION_CHANGE } from 'react-router-redux'
-
 const defaultState = {
   panelWidths: {
     left: 50
   },
-  isEditing: false,
-  openedNode: false
+  isEditing: false
 }
 
 const uiReducer = (state = defaultState, action) => {
@@ -30,29 +27,10 @@ const uiReducer = (state = defaultState, action) => {
         }
       }
     }
-    case 'UI_EDITING_TOGGLE': {
+    case 'UI_EDITING_CLOSE': {
       return {
         ...state,
-        isEditing: state.isEditing
-          ? false
-          : {
-            id: p.id,
-            type: p.type
-          }
-      }
-    }
-    case 'UI_EDITING_CLOSE':
-    case LOCATION_CHANGE:
-      {
-        return {
-          ...state,
-          isEditing: false
-        }
-      }
-    case 'UI_NODE_TOGGLE_OPEN': {
-      return {
-        ...state,
-        openedNode: p.id === state.openedNode ? false : p.id
+        isEditing: false
       }
     }
     default:
