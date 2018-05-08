@@ -2,7 +2,7 @@ import { connect } from 'react-redux'
 import AddSketch from '../../components/AddSketch'
 import { getModules } from './selectors'
 import getSketchesPath from '../../selectors/getSketchesPath'
-import { uSketchCreate } from '../../store/sketches/actions'
+import { sceneSketchCreate } from '../../store/scene/actions'
 import { projectChooseSketchesFolder } from '../../store/project/actions'
 
 const mapStateToProps = (state, ownProps) => (
@@ -14,7 +14,7 @@ const mapStateToProps = (state, ownProps) => (
 
 const mapDispatchToProps = (dispatch, ownProps) => (
   {
-    onAddClick: (id) => { dispatch(uSketchCreate(id)) },
+    onAddClick: (id) => { dispatch(sceneSketchCreate(id)) },
     onChooseFolderClick: () => { dispatch(projectChooseSketchesFolder()) }
   }
 )

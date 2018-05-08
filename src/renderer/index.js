@@ -5,19 +5,16 @@ import { Provider } from 'react-redux'
 import { createStore, applyMiddleware, compose } from 'redux'
 import { projectFilepathUpdate, projectLoadRequest } from '../store/project/actions'
 import { ConnectedRouter, routerMiddleware } from 'react-router-redux'
-import listen from 'redux-action-listeners'
 import history from '../history'
 import { composeWithDevTools } from 'redux-devtools-extension'
 import createSagaMiddleware from 'redux-saga'
 import { batchedSubscribe } from 'redux-batched-subscribe'
 import rootSaga from '../store/rootSaga'
 import rootReducer from '../store/rootReducer'
-import rootListener from '../store/rootListener'
 import App from '../containers/App'
-import * as engine from '../engine'
+import engine from '../engine'
 import { initiateScreens } from '../windows'
 import { initiateMenuHandler } from './menuHandler'
-import setCoreState from '../store/setCoreState'
 import Stats from 'stats.js'
 import createDebounce from 'redux-debounced'
 import tryRequire from 'try-require'
@@ -61,18 +58,13 @@ const debounceNotify = debounce(notify => notify())
 const sagaMiddleware = createSagaMiddleware()
 
 const store = createStore(rootReducer, composeEnhancers(
-  applyMiddleware(
-    routerMiddleware(history),
-    createDebounce(),
-    sagaMiddleware,
-    listen(rootListener)
-  ),
+  applyMiddleware(routerMiddleware(history)),
+  applyMiddleware(createDebounce()),
+  applyMiddleware(sagaMiddleware),
   batchedSubscribe(debounceNotify)
 ))
 
 sagaMiddleware.run(rootSaga, store.dispatch)
-
-setCoreState(store)
 
 const renderApp = (Component) => {
   render(

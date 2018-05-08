@@ -49,12 +49,11 @@ export function projectFilepathUpdate (filePath) {
   }
 }
 
-export function projectChooseSketchesFolder (disableRedirect, createSceneAfter) {
+export function projectChooseSketchesFolder (disableRedirect) {
   return {
     type: 'PROJECT_CHOOSE_SKETCHES_FOLDER',
     payload: {
-      disableRedirect,
-      createSceneAfter
+      disableRedirect
     }
   }
 }

@@ -1,40 +1,30 @@
 import { connect } from 'react-redux'
-import CurrentSketchComponent from '../../components/CurrentSketch'
-import { uSketchDelete, uSketchReimport } from '../../store/sketches/actions'
-import getSelectedSketchId from '../../selectors/getSelectedSketchId'
+import Sketch from '../../components/Sketch'
+import { sceneSketchDelete, sceneSketchReimport } from '../../store/scene/actions'
 import { uiEditingOpen } from '../../store/ui/actions'
 
 const mapStateToProps = (state, ownProps) => {
-  const sketchId = getSelectedSketchId(state)
-
-  if (sketchId) {
-    return {
-      isSketch: true,
-      title: state.sketches[sketchId].title,
-      params: state.sketches[sketchId].paramIds,
-      sketchId: sketchId,
-      shots: state.sketches[sketchId].shotIds
-    }
-  } else {
-    return {
-      isSketch: false
-    }
+  const sketchId = ownProps.match.params.sketchId
+  return {
+    title: state.sketches[sketchId].title,
+    params: state.sketches[sketchId].paramIds,
+    sketchId: sketchId,
+    shots: state.sketches[sketchId].shotIds
   }
 }
 
 const mapDispatchToProps = (dispatch, ownProps) => {
+  const sketchId = ownProps.match.params.sketchId
   return {
-    onDeleteClick: sketchId => dispatch(uSketchDelete(sketchId)),
-    onRenameClick: sketchId => {
-      dispatch(uiEditingOpen('sketchTitle', sketchId))
-    },
-    onReimportClick: sketchId => dispatch(uSketchReimport(sketchId))
+    onDeleteClick: () => dispatch(sceneSketchDelete(sketchId)),
+    onRenameClick: () => dispatch(uiEditingOpen('sketchTitle', sketchId)),
+    onReimportClick: () => dispatch(sceneSketchReimport(sketchId))
   }
 }
 
 const CurrentSketch = connect(
   mapStateToProps,
   mapDispatchToProps
-)(CurrentSketchComponent)
+)(Sketch)
 
 export default CurrentSketch

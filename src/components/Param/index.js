@@ -8,7 +8,6 @@ import macroIcon from '../../assets/icons/macro.icon.txt'
 import IconComponent from '../Icon'
 import theme from '../../utils/theme'
 import uiEventEmitter from '../../utils/uiEventEmitter'
-import ParamValueForm from '../../containers/ParamValueForm'
 
 const Wrapper = styled.div`
   width: 100%;
@@ -29,21 +28,6 @@ const Inner = styled(Node)`
   ${props => props.isActive && `
     border-color: ${theme.actionColor1};
   `}
-`
-
-const ValueForm = styled.div`
-  position: absolute;
-  width: 2.5rem;
-  height: 0.5rem;
-  top: 0;
-  right: 0;
-  z-index: 1;
-
-  & input {
-    font-size: 0.7rem !important;
-    padding: 0.15rem !important;
-    text-align: right;
-  }
 `
 
 const BarCol = styled.div`
@@ -103,7 +87,7 @@ const Title = styled.div`
   font-size: 0.6rem;
   z-index: 1;
   position: absolute;
-  top: 0.25rem;
+  top: 0.1rem;
   left: 0.2rem;
   width: 1000px;
   pointer-events: none;
@@ -179,8 +163,8 @@ class Param extends React.Component {
   }
 
   render () {
-    const { title, nodeId, isOpen, onOpenClick, onParamBarClick, onParamBarDoubleClick,
-    children, numInputs, numMacros, inputLinkTitle, isActive, type, isEditing } = this.props
+    const { title, nodeId, isOpen, onOpenClick, onParamBarClick,
+    children, numInputs, numMacros, inputLinkTitle, isActive, type } = this.props
 
     return (
       <ThemeProvider theme={{ type }}>
@@ -188,20 +172,10 @@ class Param extends React.Component {
           <Inner isOpen={isOpen} isActive={isActive}>
             <Top>
               <Row>
-
-                <BarCol onDoubleClick={onParamBarDoubleClick}>
+                <BarCol>
                   <Title>{title}</Title>
-                  <ParamBar
-                    nodeId={nodeId}
-                    onMouseDown={onParamBarClick}
-                    />
-                  { isEditing &&
-                    <ValueForm>
-                      <ParamValueForm id={nodeId} />
-                    </ValueForm>
-                  }
+                  <ParamBar nodeId={nodeId} onMouseDown={onParamBarClick} />
                 </BarCol>
-
                 <Info onClick={onOpenClick}>
                   {inputLinkTitle && <span><Icon glyph={inputIcon} />{inputLinkTitle}</span>}
                   <IconInfo>
@@ -234,13 +208,11 @@ Param.propTypes = {
   isActive: PropTypes.bool,
   onOpenClick: PropTypes.func.isRequired,
   onParamBarClick: PropTypes.func,
-  onParamBarDoubleClick: PropTypes.func,
   children: PropTypes.node,
   numInputs: PropTypes.number,
   numMacros: PropTypes.number,
   inputLinkTitle: PropTypes.string,
-  type: PropTypes.string,
-  isEditing: PropTypes.bool
+  type: PropTypes.string
 }
 
 export default Param

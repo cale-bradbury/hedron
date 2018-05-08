@@ -1,10 +1,10 @@
 import { connect } from 'react-redux'
 import Viewer from '../../components/Viewer'
-import { setViewerEl } from '../../engine/renderer'
+import world from '../../engine/world'
 
 const mapStateToProps = (state, ownProps) => (
   {
-    containerElRef: (el) => setViewerEl(el)
+    containerElRef: (el) => world.setScene(el)
   }
 )
 

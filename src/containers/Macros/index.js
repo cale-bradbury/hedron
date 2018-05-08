@@ -8,10 +8,7 @@ const mapStateToProps = (state, ownProps) => ({
 })
 
 const mapDispatchToProps = (dispatch, ownProps) => ({
-  onAddClick: e => {
-    e.stopPropagation()
-    dispatch(uMacroCreate())
-  }
+  onAddClick: () => { dispatch(uMacroCreate()) }
 })
 
 export default connect(
