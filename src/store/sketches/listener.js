@@ -1,22 +1,7 @@
-import {
-  sketchCreate,
-  sketchDelete,
-  sketchUpdate
-} from './actions'
-import {
-  rSceneSketchAdd,
-  rSceneSketchRemove,
-  sceneSketchSelect
-} from '../scenes/actions'
-import {
-  uNodeCreate,
-  uNodeDelete,
-  nodeUpdate
-} from '../nodes/actions'
-import {
-  engineSceneSketchAdd,
-  engineSceneSketchDelete
-} from '../../engine/actions'
+import { sketchCreate, sketchDelete, sketchUpdate } from './actions'
+import { rSceneSketchAdd, rSceneSketchRemove, sceneSketchSelect } from '../scenes/actions'
+import { uNodeCreate, uNodeDelete, nodeUpdate } from '../nodes/actions'
+import { engineSceneSketchAdd, engineSceneSketchDelete } from '../../engine/actions'
 import getScene from '../../selectors/getScene'
 import getSketch from '../../selectors/getSketch'
 import getNode from '../../selectors/getNode'
@@ -30,10 +15,7 @@ import uid from 'uid'
 const handleSketchCreate = (action, store) => {
   let uniqueId
   const state = store.getState()
-  let {
-    moduleId,
-    sceneId
-  } = action.payload
+  let { moduleId, sceneId } = action.payload
 
   if (!sceneId) {
     sceneId = getCurrentSceneId(state)
@@ -57,8 +39,8 @@ const handleSketchCreate = (action, store) => {
         type: 'param',
         key: param.key,
         value: param.defaultValue,
-        min: param.min ? param.min : 0,
-        max: param.max ? param.max : 1,
+        min:param.min,
+        max:param.max,
         id: uniqueId,
         inputLinkIds
       }))
@@ -98,10 +80,7 @@ const handleSketchCreate = (action, store) => {
 
 const handleSketchDelete = (action, store) => {
   let state = store.getState()
-  let {
-    id,
-    sceneId
-  } = action.payload
+  let { id, sceneId } = action.payload
   if (!sceneId) {
     sceneId = getCurrentSceneId(state)
   }
@@ -152,14 +131,11 @@ const handleSketchReimport = (action, store) => {
 
   const moduleParams = module.params
   const moduleShots = module.shots
-  var foundKeys = [];
-  var foundMethods = [];
 
   // Look through the loaded module's params for new ones
   for (let i = 0; i < moduleParams.length; i++) {
     const moduleParam = moduleParams[i]
     const sketchParam = sketchParams[moduleParam.key]
-    foundKeys.push(moduleParam.key);
 
     if (!sketchParam) {
       // If module param doesnt exist in sketch, it needs to be created
@@ -167,26 +143,18 @@ const handleSketchReimport = (action, store) => {
       paramIds = [
         ...paramIds.slice(0, i), uniqueId, ...paramIds.slice(i)
       ]
-      console.log(moduleParam.key);
       store.dispatch(uNodeCreate(uniqueId, {
-        title: moduleParam.title ? moduleParam.title : moduleParam.key,
+        title: moduleParam.title,
         type: 'param',
         key: moduleParam.key,
         value: moduleParam.defaultValue,
-        min: moduleParam.min ? moduleParam.min : 0,
-        max: moduleParam.max ? moduleParam.max : 1,
         id: uniqueId,
         inputLinkIds: []
       }))
     } else {
       // If param does exist, the title may still change
       const id = sketchParam.id
-      store.dispatch(nodeUpdate(id, {
-        title: moduleParam.title ? moduleParam.title : moduleParam.key,
-        key: moduleParam.key,
-        min: moduleParam.min ? moduleParam.min : 0,
-        max: moduleParam.max ? moduleParam.max : 1
-      }))
+      store.dispatch(nodeUpdate(id, { title: moduleParam.title }))
     }
   }
 
@@ -194,7 +162,6 @@ const handleSketchReimport = (action, store) => {
   for (let i = 0; i < moduleShots.length; i++) {
     const moduleShot = moduleShots[i]
     const sketchShot = sketchShots[moduleShot.method]
-    foundMethods.push(moduleShot.method);
 
     if (!sketchShot) {
       // If module shot doesnt exist in sketch, it needs to be created
@@ -214,26 +181,11 @@ const handleSketchReimport = (action, store) => {
     } else {
       // If param does exist, the title may still change
       const id = sketchShot.id
-      store.dispatch(nodeUpdate(id, {
-        title: sketchShot.title
-      }))
+      store.dispatch(nodeUpdate(id, { title: sketchShot.title }))
     }
   }
 
-  // Remove Params that are no longer in the config
-  /*for (var param in sketchParams) {
-    if (foundKeys.indexOf(param) == -1) {
-      store.dispatch(uNodeDelete(sketchParams[param].id));
-      var i = sketch.paramIds.indexOf(sketchParams[param].id)
-      console.log(sketchParams[param].id);
-      sketch.paramIds.splice(i, 1)
-    }
-  }*/
-
-  store.dispatch(sketchUpdate(id, {
-    paramIds: sketch.paramIds,
-    shotIds
-  }))
+  store.dispatch(sketchUpdate(id, { paramIds, shotIds }))
 }
 
 export default (action, store) => {
