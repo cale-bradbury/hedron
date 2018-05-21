@@ -12,20 +12,32 @@ module.exports = {
     {
       key: 'xPos', // needs to be unique
       defaultValue: .5,
-      min: -.01,
-      max: .01
+      min: -.05,
+      max: .05
     },
     {
       key: 'yPos',
       defaultValue: .5,
-      min: -.01,
-      max: .01
+      min: -.05,
+      max: .05
     },
     {
       key: 'zPos',
       defaultValue: .5,
-      min: -.01,
-      max: .01
+      min: -.05,
+      max: .05
+    },
+    {
+      key: 'yRot', // needs to be unique
+      defaultValue: .5,
+      min: -.1,
+      max: .1
+    },
+    {
+      key: 'yLook',
+      defaultValue: .5,
+      min: -2,
+      max: 2
     },
     {
       key: 'm0', // needs to be unique
@@ -50,14 +62,28 @@ module.exports = {
       defaultValue: .5,
       min: 0,
       max: 1
+    },
+    {
+      key: 'opacity',
+      defaultValue: .5,
+      min: 0,
+      max: 1
     }
   ],
   // Shots are single functions that can fire, as opposed to values that change
   // e.g. Explosions, Pre-defined animations
   shots: [
     {
-      method: 'invertFirst', // needs to be unique
-      title: 'invert first' // should be human
+      method: 'mirrorX', // needs to be unique
+      title: 'mirror X' // should be human
+    },
+    {
+      method: 'mirrorXInvert', // needs to be unique
+      title: 'mirror X Invert' // should be human
+    },
+    {
+      method: 'mirrorXNone', // needs to be unique
+      title: 'no mirror X' // should be human
     }
   ]
 }

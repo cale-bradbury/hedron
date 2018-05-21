@@ -11,8 +11,8 @@ float voronoi3(vec3 p)
 {
     vec3 fp = floor(p);
     
-    float d1 = 1./0.;
-    float d2 = 1./0.;
+    float d1 = 999999999999999.;
+    float d2 = 999999999999999.;
     
     for(int i = -1; i < 2; i++)
     {
@@ -37,17 +37,24 @@ uniform vec4 color;
 uniform vec4 mic;
 uniform float iTime;
 uniform vec4 iPos;
+uniform vec3 iTarget;
+uniform int mirrorX;
 void main(){
     // Normalized pixel coordinates (from 0 to 1)
     vec2 p = local-.5;
     p*=4.;
-    p.x = -abs(p.x);
+    if(mirrorX == 1){
+      p.x = abs(p.x);
+    }else if(mirrorX == 2){
+      p.x = -abs(p.x);
+    }
+    
 	float time = mod(iTime*.1, 10.);
     
     vec4 m = mic;
     
     vec3 ro = iPos.xyz;
-    vec3 ta = ro+vec3(0., 0., 1.);
+    vec3 ta = ro+iTarget.xyz;
     vec3 ww = normalize( ta - ro );
     vec3 uu = normalize( cross(ww,vec3(0.0,1.0,0.0) ) );
     vec3 vv = normalize( cross(uu,ww));
@@ -55,7 +62,11 @@ void main(){
     rd*=.2;
     vec3 f = vec3(0.);
     for(float i = 0.; i<steps;i++){
-        f += smoothstep(0.5, 1.,vec3(voronoi3(ro*vec3(1., 1., 1.+m.x)+100.),voronoi3(ro*vec3(2., 2.+m.y, 2.)-100.),voronoi3(ro*vec3(4.1-m.z, 4., 4.))))*smoothstep(steps, fogStart, i)*.2;
+        f += smoothstep(0.5, 1.,vec3(
+          voronoi3((ro-iPos.xyz)*vec3(1., 1., 1.+m.x)+100.+iPos.xyz),
+          voronoi3((ro-iPos.xyz)*vec3(2., 2.+m.y, 2.)-100.+iPos.xyz),
+          voronoi3((ro-iPos.xyz)*vec3(4.1-m.z, 4., 4.)+iPos.xyz)
+        ))*smoothstep(steps, fogStart, i)*.2;
         
         ro+=rd;
     }
