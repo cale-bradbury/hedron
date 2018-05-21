@@ -17,7 +17,7 @@ class Text {
     var loader = new THREE.FontLoader();
 
     loader.load('D:\\Personal\\hedron\\hedron\\cale-projects\\obey\\fonts\\helvetiker_regular.typeface.json', (font) => {
-      this.geometry = new THREE.TextGeometry('test :)', {
+      this.geometry = new THREE.TextGeometry('OBEY', {
         size: 1,
         height: 1,
         font: font,
@@ -36,7 +36,6 @@ class Text {
   }
 
   invertFirst() {
-    console.log("First");
     this.invert = !this.invert;
   }
 
@@ -88,6 +87,7 @@ class Text {
 
         var s = this.lerp(params.scaleStart, params.scaleEnd, f);
         s += Math.sin(params.phaseZ * tau + i * params.freqZ) * params.ampZ + params.ampZ;
+        s = Math.max(s, .000001);
         this.names[i].scale.set(s, s, params.thickness)
 
         f += step;

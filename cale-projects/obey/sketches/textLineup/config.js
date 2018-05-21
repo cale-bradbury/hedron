@@ -29,19 +29,19 @@ module.exports = {
     },
 
     {
-      key: 'rotX', // needs to be unique
+      key: 'xRot', // needs to be unique
       defaultValue: .5,
       min: -3.1415,
       max: 3.1415
     },
     {
-      key: 'rotY',
+      key: 'yRot',
       defaultValue: .5,
       min: -3.1415,
       max: 3.1415
     },
     {
-      key: 'rotZ', // needs to be unique
+      key: 'zRot', // needs to be unique
       defaultValue: .5,
       min: -3.1415,
       max: 3.1415
@@ -66,19 +66,29 @@ module.exports = {
     },
     {
       key: 'colorHue',
-      defaultValue: 0.6
+      defaultValue: 0.6,
+      min: 0,
+      max: 360
     },
     {
       key: 'colorSat',
-      defaultValue: 0.5
+      defaultValue: 0.5,
+      min: 0,
+      max: 100
     },
     {
       key: 'colorLight',
-      defaultValue: 0.5
+      defaultValue: 0.5,
+      min: 0,
+      max: 100
+    },
+    {
+      key: 'opacity',
+      defaultValue: 1
     },
     {
       key: 'thickness',
-      defaultValue: 0.4,
+      defaultValue: 0.05,
       min: .0001,
       max: 1
     },
@@ -87,7 +97,51 @@ module.exports = {
       defaultValue: 0.3,
       min: .0001,
       max: 3
-    }
+    },
+    {
+      key: 'selected',
+      defaultValue: 0
+    },
+    {
+      key: 'selectedOpacity',
+      defaultValue: 1
+    },
+    {
+      key: 'selectedX',
+      defaultValue: .5,
+      min: -5,
+      max: 5
+    },
+    {
+      key: 'selectedY',
+      defaultValue: .5,
+      min: -5,
+      max: 5
+    },
+    {
+      key: 'selectedZ',
+      defaultValue: .5,
+      min: -5,
+      max: 5
+    },
+    {
+      key: 'smoothing',
+      defaultValue: .5,
+      min: 0,
+      max: 1
+    },
+    {
+      key: 'nextOffset',
+      defaultValue: .5,
+      min: -5,
+      max: 5
+    },
+    {
+      key: 'selectedHueOffset',
+      defaultValue: .5,
+      min: -180,
+      max: 180
+    },
 
   ],
   // Shots are single functions that can fire, as opposed to values that change
