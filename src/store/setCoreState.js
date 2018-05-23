@@ -37,6 +37,19 @@ export default store => {
       ]
     }
   ))
+  
+  store.dispatch(uNodeCreate('audioLevelsPeakFalloff', {
+    title: 'Levels Peak Falloff',
+    type: 'param',
+    value: 1,
+    id: 'audioLevelsPeakFalloff'
+  }))
+  store.dispatch(uNodeCreate('audioLevelsSmoothing', {
+    title: 'Levels Smoothing',
+    type: 'param',
+    value: 0,
+    id: 'audioLevelsSmoothing'
+  }))
 
   store.dispatch(uNodeCreate('audioNormalizeLevels', {
     title: 'Normalize Levels',
