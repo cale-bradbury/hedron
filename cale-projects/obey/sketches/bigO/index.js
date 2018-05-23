@@ -24,10 +24,6 @@ class BigO {
     this.mesh = new THREE.Mesh(this.geometry, material);
     this.group.add(this.mesh);
 
-    this.colorPhase = 0;
-    this.invert = false;
-
-    this.camera = scene.camera;
   }
 
   lerp(v0, v1, t) {
@@ -36,6 +32,7 @@ class BigO {
 
   update(params, time, delta, allParams) {
     this.group.scale.set(params.scale, params.scale, params.scale)
+    this.mesh.material.map = this.texture;
     //console.log(this.camera);
   }
 

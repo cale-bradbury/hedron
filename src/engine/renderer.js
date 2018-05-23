@@ -145,8 +145,8 @@ export const stopOutput = () => {
 }
 
 const renderChannels = (sceneA, sceneB) => {
-  sceneA && scene.render(sceneA.scene, sceneA.camera, rttA, true)
-  sceneB && scene.render(sceneB.scene, sceneB.camera, rttB, true)
+  sceneA && sceneA.render(sceneA.scene, sceneA.camera, rttA, true)
+  sceneB && sceneB.render(sceneB.scene, sceneB.camera, rttB, true)
   renderer.render(quadScene.scene, quadScene.camera)
 }
 

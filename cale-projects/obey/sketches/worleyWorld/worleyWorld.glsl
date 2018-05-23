@@ -30,24 +30,18 @@ float voronoi3(vec3 p)
     return d1;
 }
 
-#define steps 8.
-#define fogStart 6.
+#define steps 4.
 varying vec2 local;
 uniform vec4 color;
 uniform vec4 mic;
 uniform float iTime;
 uniform vec4 iPos;
 uniform vec3 iTarget;
-uniform int mirrorX;
+uniform vec4 shape;
 void main(){
     // Normalized pixel coordinates (from 0 to 1)
     vec2 p = local-.5;
-    p*=4.;
-    if(mirrorX == 1){
-      p.x = abs(p.x);
-    }else if(mirrorX == 2){
-      p.x = -abs(p.x);
-    }
+    p*=shape.x;
     
 	float time = mod(iTime*.1, 10.);
     
@@ -59,27 +53,25 @@ void main(){
     vec3 uu = normalize( cross(ww,vec3(0.0,1.0,0.0) ) );
     vec3 vv = normalize( cross(uu,ww));
 	vec3 rd = normalize( p.x*uu + p.y*vv + 2.0*ww );
-    rd*=.2;
+    rd*=shape.y;
     vec3 f = vec3(0.);
     for(float i = 0.; i<steps;i++){
         f += smoothstep(0.5, 1.,vec3(
-          voronoi3((ro-iPos.xyz)*vec3(1., 1., 1.+m.x)+100.+iPos.xyz),
-          voronoi3((ro-iPos.xyz)*vec3(2., 2.+m.y, 2.)-100.+iPos.xyz),
+          voronoi3((ro-iPos.xyz)*vec3(6., 6., 6.+m.x)+50.+iPos.xyz),
+          voronoi3((ro-iPos.xyz)*vec3(8., 8.+m.y, 8.)-50.+iPos.xyz),
           voronoi3((ro-iPos.xyz)*vec3(4.1-m.z, 4., 4.)+iPos.xyz)
-        ))*smoothstep(steps, fogStart, i)*.2;
+        ))*shape.z;
         
         ro+=rd;
     }
-	float o = .25;
-    float a = .05;
     
     m*=4.;
     
     vec3 c = f.r*sin(m.r*vec3(0., .33, .66))+f.r;
     c += f.g*cos(m.g*vec3(0.33, .66, .0))+f.g;
     c += f.b*sin(m.b*vec3(0.66, .0, .33)+1.5707)+f.b;
-    c = abs(mod(c*1.1+1., vec3(2.))-1.);
-    c = pow(c, vec3(2.));
+    c = abs(mod(c+1., 2.)-1.);
+    c = pow(c, vec3(shape.w));
     // Output to screen
     gl_FragColor = vec4(c,1.0)*color;
 }

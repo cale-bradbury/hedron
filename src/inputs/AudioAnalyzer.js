@@ -1,5 +1,7 @@
+import * as THREE from 'three'
 class AudioInput {
-  constructor (stream) {
+  static texture = null;
+  constructor(stream) {
     const context = new window.AudioContext()
     const source = context.createMediaStreamSource(stream)
 
@@ -22,33 +24,41 @@ class AudioInput {
     // stoping divide by zeros
     this.maxLevelMinimum = 0.001
     for (let i = 0; i < this.numBands; i++) {
-      this.maxLevelsData[ i ] = this.maxLevelMinimum
-      this.levelsData[ i ] = this.cleanLevelsData[ i ] = 0
+      this.maxLevelsData[i] = this.maxLevelMinimum
+      this.levelsData[i] = this.cleanLevelsData[i] = 0
     }
 
     source.connect(this.analyser)
 
     // Knocking off 500 redundant frequencies
     this.levelBins = Math.floor((this.analyser.frequencyBinCount - 500) / this.numBands)
+
+    //creating audio texture
+    AudioInput.texture = new THREE.DataTexture(self.data, 1024, 1, THREE.LuminanceFormat);
+    AudioInput.texture.magFilter = AudioInput.texture.minFilter = THREE.LinearFilter;
   }
 
-  update () {
+  update() {
     this.analyser.getByteFrequencyData(this.freqs)
+
+    AudioInput.texture.image.data = this.freqs;
+
+    AudioInput.texture.needsUpdate = true;
 
     for (let i = 0; i < this.numBands; i++) {
       let sum = 0
 
       for (let j = 0; j < this.levelBins; j++) {
-        sum += this.freqs[ (i * this.levelBins) + j ]
+        sum += this.freqs[(i * this.levelBins) + j]
       }
 
       var band = (sum / this.levelBins) / 256
-      band = Math.max(band, Math.max(0, this.cleanLevelsData[ i ] - this.levelsFalloff))
-      this.cleanLevelsData[ i ] = band
-      this.maxLevelsData[ i ] = Math.max(this.maxLevelsData[ i ] * this.maxLevelFalloffMultiplier, this.maxLevelMinimum)
-      this.maxLevelsData[ i ] = Math.max(this.maxLevelsData[ i ], band)
-      var normalized = band / this.maxLevelsData[ i ]
-      this.levelsData[ i ] = (1 - this.normalizeLevels) * band + this.normalizeLevels * normalized
+      band = Math.max(band, Math.max(0, this.cleanLevelsData[i] - this.levelsFalloff))
+      this.cleanLevelsData[i] = band
+      this.maxLevelsData[i] = Math.max(this.maxLevelsData[i] * this.maxLevelFalloffMultiplier, this.maxLevelMinimum)
+      this.maxLevelsData[i] = Math.max(this.maxLevelsData[i], band)
+      var normalized = band / this.maxLevelsData[i]
+      this.levelsData[i] = (1 - this.normalizeLevels) * band + this.normalizeLevels * normalized
     }
 
     return this.levelsData

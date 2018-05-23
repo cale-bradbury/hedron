@@ -66,6 +66,15 @@ class WorleyWorld {
             w: 1
           }
         },
+        shape: {
+          type: "v4",
+          value: {
+            x: 16,
+            y: .2,
+            z: .2,
+            w: 1
+          }
+        },
         iTime: {
           type: "f",
           value: 0
@@ -121,6 +130,12 @@ class WorleyWorld {
       y: params.yLook,
       z: Math.cos(this.rotation),
       w: params.opacity
+    }
+    this.material.uniforms.shape.value = {
+      x: params.fov,
+      y: params.scale,
+      z: params.brightness,
+      w: params.power
     }
   }
 

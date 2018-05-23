@@ -68,22 +68,35 @@ module.exports = {
       defaultValue: .5,
       min: 0,
       max: 1
+    },
+    {
+      key: 'fov',
+      defaultValue: .5,
+      min: 2,
+      max: 16
+    },
+    {
+      key: 'scale',
+      defaultValue: .1,
+      min: .1,
+      max: .8
+    },
+    {
+      key: 'brightness',
+      defaultValue: 0,
+      min: .1,
+      max: 1
+    },
+    {
+      key: 'power',
+      defaultValue: .5,
+      min: 1,
+      max: 4
     }
   ],
   // Shots are single functions that can fire, as opposed to values that change
   // e.g. Explosions, Pre-defined animations
   shots: [
-    {
-      method: 'mirrorX', // needs to be unique
-      title: 'mirror X' // should be human
-    },
-    {
-      method: 'mirrorXInvert', // needs to be unique
-      title: 'mirror X Invert' // should be human
-    },
-    {
-      method: 'mirrorXNone', // needs to be unique
-      title: 'no mirror X' // should be human
-    }
+
   ]
 }

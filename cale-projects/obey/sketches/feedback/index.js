@@ -24,9 +24,7 @@ class Feedback {
     this.root = new THREE.Group()
     this.camera = scene.camera;
     this.renderer = scene.renderer;
-    this.scene = scene.scene;
-
-    scene.addPost(new EffectComposer.RenderPass(this.scene, this.camera));
+    this.scene = scene;
 
     this.save = new EffectComposer.SavePass();
 
@@ -36,9 +34,13 @@ class Feedback {
           type: "t",
           value: null
         },
-        blur: {
+        last: {
           type: "t",
           value: this.save.renderTarget
+        },
+        mic: {
+          type: "t",
+          value: scene.analyzer.texture
         },
         fade: {
           type: "f",
@@ -48,7 +50,27 @@ class Feedback {
           type: "f",
           value: 0
         },
+        blend: {
+          type: "i",
+          value: 0
+        },
+        debug: {
+          type: "b",
+          value: false
+        },
+        center: {
+          type: "v4",
+          value: new THREE.Vector4(.5, .5, 1, .5)
+        },
         shift: {
+          type: "v4",
+          value: new THREE.Vector4(0, 0, 0, 0)
+        },
+        angle: {
+          type: "v4",
+          value: new THREE.Vector4(0, 0, 0, 0)
+        },
+        hsb: {
           type: "v4",
           value: new THREE.Vector4(0, 0, 0, 0)
         }
@@ -60,7 +82,7 @@ class Feedback {
 
     scene.addPost(this.shift);
     scene.addPost(this.save);
-    scene.addPost(new EffectComposer.ShaderPass({
+    this.postSave = new EffectComposer.ShaderPass({
       uniforms: {
         tex: {
           type: "t",
@@ -70,8 +92,9 @@ class Feedback {
       vertexShader: vert,
       fragmentShader: defaultFrag
 
-    }, "tex"));
-
+    }, "tex")
+    this.added = false;
+    this.togglePostSave();
   }
 
   lerp(v0, v1, t) {
@@ -79,29 +102,88 @@ class Feedback {
   }
 
   panic() {
-    console.log("PANIC");
     this.clearNextFrame = true;
+  }
+  debug() {
+    this.shift.uniforms.debug.value = !this.shift.uniforms.debug.value;
+  }
+
+  togglePostSave() {
+    if (this.added) {
+      this.scene.removePost(this.postSave);
+    } else {
+      this.scene.addPost(this.postSave);
+    }
+    this.added = !this.added;
+  }
+  blendLerp() {
+    this.shift.uniforms.blend.value = 0;
+  }
+  blendAdd() {
+    this.shift.uniforms.blend.value = 1;
+  }
+  blendDivide() {
+    this.shift.uniforms.blend.value = 2;
+  }
+  blendDifference() {
+    this.shift.uniforms.blend.value = 3;
+  }
+  blendBurn() {
+    this.shift.uniforms.blend.value = 4;
+  }
+  blendDarken() {
+    this.shift.uniforms.blend.value = 5;
+  }
+  blendMultiply() {
+    this.shift.uniforms.blend.value = 6;
+  }
+  blendScreen() {
+    this.shift.uniforms.blend.value = 7;
+  }
+  blendPin() {
+    this.shift.uniforms.blend.value = 8;
+  }
+  blendSaturation() {
+    this.shift.uniforms.blend.value = 9;
   }
 
   update(params, time, delta, allParams) {
     var size = this.renderer.getSize();
     params.xShift /= size.width;
-    params.yShift /= size.height;
-    params.dShift /= size.height;
+    params.yShift /= size.width;
+    params.dShift /= 360 / 3.1415;
     params.aShift /= 360 / 3.1415
 
     if (this.clearNextFrame) {
       this.clearNextFrame = false;
       params.fade = 0;
     }
-
+    this.shift.uniforms.center.value = {
+      x: params.xPos,
+      y: params.yPos,
+      z: Math.round(params.angleScale),
+      w: params.angleOffset
+    }
+    this.shift.uniforms.mic.value = this.scene.analyzer.texture;
     this.shift.uniforms.time.value = time;
     this.shift.uniforms.fade.value = params.fade;
     this.shift.uniforms.shift.value = {
       x: params.xShift,
       y: params.yShift,
-      z: params.dShift,
-      w: params.aShift
+      z: 0,
+      w: 0
+    }
+    this.shift.uniforms.hsb.value = {
+      x: params.hue,
+      y: params.saturation,
+      z: params.brightness,
+      w: 0
+    }
+    this.shift.uniforms.angle.value = {
+      x: params.angleMin,
+      y: params.angleMax,
+      z: params.angleFreq,
+      w: params.anglePhase
     }
     //console.log(this.camera);
   }
