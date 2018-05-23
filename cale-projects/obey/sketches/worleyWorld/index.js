@@ -75,6 +75,15 @@ class WorleyWorld {
             w: 1
           }
         },
+        micMul: {
+          type: "v4",
+          value: {
+            x: 2,
+            y: 4,
+            z: 0,
+            w: 0
+          }
+        },
         iTime: {
           type: "f",
           value: 0
@@ -136,6 +145,12 @@ class WorleyWorld {
       y: params.scale,
       z: params.brightness,
       w: params.power
+    }
+    this.material.uniforms.micMul.value = {
+      x: params.micSpace,
+      y: params.micColor,
+      z: 0,
+      w: 0
     }
   }
 

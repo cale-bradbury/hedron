@@ -38,6 +38,8 @@ uniform float iTime;
 uniform vec4 iPos;
 uniform vec3 iTarget;
 uniform vec4 shape;
+uniform vec4 micMul;
+
 void main(){
     // Normalized pixel coordinates (from 0 to 1)
     vec2 p = local-.5;
@@ -45,7 +47,6 @@ void main(){
     
 	float time = mod(iTime*.1, 10.);
     
-    vec4 m = mic;
     
     vec3 ro = iPos.xyz;
     vec3 ta = ro+iTarget.xyz;
@@ -55,6 +56,7 @@ void main(){
 	vec3 rd = normalize( p.x*uu + p.y*vv + 2.0*ww );
     rd*=shape.y;
     vec3 f = vec3(0.);
+    vec4 m = mic*micMul.x;
     for(float i = 0.; i<steps;i++){
         f += smoothstep(0.5, 1.,vec3(
           voronoi3((ro-iPos.xyz)*vec3(6., 6., 6.+m.x)+50.+iPos.xyz),
@@ -65,7 +67,7 @@ void main(){
         ro+=rd;
     }
     
-    m*=4.;
+    m = mic*micMul.y;
     
     vec3 c = f.r*sin(m.r*vec3(0., .33, .66))+f.r;
     c += f.g*cos(m.g*vec3(0.33, .66, .0))+f.g;

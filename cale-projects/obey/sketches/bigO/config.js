@@ -31,7 +31,7 @@ module.exports = {
       key: 'scale',
       defaultValue: .5,
       min: .0001,
-      max: 3000
+      max: 1500
     },
 
 

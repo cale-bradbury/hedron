@@ -30,8 +30,8 @@ module.exports = {
     {
       key: 'yRot', // needs to be unique
       defaultValue: .5,
-      min: -.1,
-      max: .1
+      min: -.01,
+      max: .01
     },
     {
       key: 'yLook',
@@ -43,25 +43,25 @@ module.exports = {
       key: 'm0', // needs to be unique
       defaultValue: .5,
       min: 0,
-      max: 1
+      max: 2
     },
     {
       key: 'm1',
       defaultValue: .5,
       min: 0,
-      max: 1
+      max: 2
     },
     {
       key: 'm2',
       defaultValue: .5,
       min: 0,
-      max: 1
+      max: 2
     },
     {
       key: 'm3',
       defaultValue: .5,
       min: 0,
-      max: 1
+      max: 2
     },
     {
       key: 'opacity',
@@ -92,6 +92,18 @@ module.exports = {
       defaultValue: .5,
       min: 1,
       max: 4
+    },
+    {
+      key: 'micSpace',
+      defaultValue: 0,
+      min: 0,
+      max: 8
+    },
+    {
+      key: 'micColor',
+      defaultValue: .5,
+      min: 0,
+      max: 8
     }
   ],
   // Shots are single functions that can fire, as opposed to values that change
