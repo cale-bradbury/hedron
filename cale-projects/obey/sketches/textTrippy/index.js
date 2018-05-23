@@ -1,4 +1,5 @@
 const THREE = require('three')
+const fontJson = require('../../fonts/helvetiker_regular.typeface.json')
 
 class Text {
 
@@ -14,19 +15,16 @@ class Text {
     this.root.add(this.group)
     this.names = []
 
-    var loader = new THREE.FontLoader();
+    var font = new THREE.Font(fontJson);
+    this.geometry = new THREE.TextGeometry('OBEY', {
+      size: 1,
+      height: 1,
+      font: font,
+      style: 'normal',
+      weight: 'normal'
+    })
+    this.geometry.center()
 
-    loader.load('D:\\Personal\\hedron\\hedron\\cale-projects\\obey\\fonts\\helvetiker_regular.typeface.json', (font) => {
-      this.geometry = new THREE.TextGeometry('OBEY', {
-        size: 1,
-        height: 1,
-        font: font,
-        style: 'normal',
-        weight: 'normal'
-      })
-      this.geometry.center()
-
-    });
     this.colorPhase = 0;
     this.invert = false;
   }

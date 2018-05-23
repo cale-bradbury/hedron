@@ -1,4 +1,5 @@
 const THREE = require('three')
+const fontJson = require('../../fonts/helvetiker_regular.typeface.json')
 
 class TextLineup {
 
@@ -7,9 +8,9 @@ class TextLineup {
     var nameStrings = [
       'nidia',
       'jerico',
-      'benjamin',
-      'dj fadzwa'
+      'benjamin'
     ];
+    var djString = "dj fadzwa";
 
     this.names = [];
     this.geometries = [];
@@ -20,49 +21,45 @@ class TextLineup {
     this.group.scale.set(100, 100, 100);
     this.root.add(this.group)
 
-    var loader = new THREE.FontLoader();
+    var font = new THREE.Font(fontJson);
+    for (var i = 0; i < nameStrings.length; i++) {
+      var m = this.getTextMesh(nameStrings[i], font);
+      this.group.add(m);
+      this.names.push(m);
+      this.materials.push(m.material);
+      this.geometries.push(m.geometry);
+    }
 
-    loader.load('D:\\Personal\\hedron\\hedron\\cale-projects\\obey\\fonts\\helvetiker_regular.typeface.json', (font) => {
-      for (var i = 0; i < nameStrings.length; i++) {
-        var g = new THREE.TextGeometry(nameStrings[i], {
-          size: 1,
-          height: 1,
-          font: font,
-          style: 'normal',
-          weight: 'normal'
-        });
-        this.geometries.push(g);
-        var mat = new THREE.MeshBasicMaterial({
-          color: new THREE.Color("#ffffff"),
-          transparent: true,
-          opacity: .7
-        });
-        this.materials.push(mat);
-        var m = new THREE.Mesh(g, mat);
-        this.group.add(m);
-        this.names.push(m);
-      }
+    this.nextUp = this.getTextMesh("< next up", font);
+    this.group.add(this.nextUp);
+    if (djString != "") {
+      this.dj = this.getTextMesh(djString, font);
+      this.group.add(this.dj);
+    }
 
-      var g = new THREE.TextGeometry("< next up", {
-        size: 1,
-        height: 1,
-        font: font,
-        style: 'normal',
-        weight: 'normal'
-      });
-      var mat = new THREE.MeshBasicMaterial({
-        color: new THREE.Color("#ffffff"),
-        transparent: true,
-        opacity: .7
-      });
-      this.nextUp = new THREE.Mesh(g, mat);
-      this.group.add(this.nextUp);
-
-    });
     this.colorPhase = 0;
     this.scale = 0;
     this.selected = -1;
     this.nextUpOffset = 0;
+  }
+  getTextMesh(name, font) {
+    return new THREE.Mesh(this.getTextGeom(name, font), this.getTextMaterial());
+  }
+  getTextGeom(name, font) {
+    return new THREE.TextGeometry(name, {
+      size: 1,
+      height: 1,
+      font: font,
+      style: 'normal',
+      weight: 'normal'
+    });
+  }
+  getTextMaterial() {
+    return new THREE.MeshBasicMaterial({
+      color: new THREE.Color("#ffffff"),
+      transparent: true,
+      opacity: .7
+    });
   }
 
   lerp(v0, v1, t) {
@@ -82,9 +79,10 @@ class TextLineup {
       this.geometries[selected].boundingBox.getSize(size);
       this.nextUpOffset = size.x * this.scale;
     }
-
-    for (var i = 0; i < this.names.length; i++) {
-      this.names[i].scale.set(this.scale, this.scale, params.thickness);
+    var length = this.dj ? this.names.length + 1 : this.names.length;
+    for (var i = 0; i < length; i++) {
+      var target;
+      var scale = this.scale;
       var opacity = params.opacity;
       var hue = params.colorHue;
       var position = {
@@ -100,13 +98,24 @@ class TextLineup {
         hue += params.selectedHueOffset + 360;
         hue %= 360;
       }
-      this.materials[i].opacity = this.lerp(this.materials[i].opacity, opacity, smoothing);
-      position.x = this.lerp(this.names[i].position.x, position.x, smoothing);
-      position.y = this.lerp(this.names[i].position.y, position.y, smoothing);
-      position.z = this.lerp(this.names[i].position.z, position.z, smoothing);
-      this.names[i].position.set(position.x, position.y, position.z);
+      if (i == this.names.length) {
+        target = this.dj;
+        scale *= .7;
+        opacity = params.selectedOpacity;
+        hue += params.djHueOffset + 360;
+        hue %= 360;
+      } else {
+        target = this.names[i];
+      }
 
-      this.names[i].material.color.setHex(new THREE.Color("hsl(" + hue + ", " + Math.round(params.colorSat) + "%, " + Math.round(params.colorLight) + "%)").getHex());
+      target.scale.set(scale, scale, params.thickness);
+      target.material.opacity = this.lerp(target.material.opacity, opacity, smoothing);
+      position.x = this.lerp(target.position.x, position.x, smoothing);
+      position.y = this.lerp(target.position.y, position.y, smoothing);
+      position.z = this.lerp(target.position.z, position.z, smoothing);
+      target.position.set(position.x, position.y, position.z);
+
+      target.material.color.setHex(new THREE.Color("hsl(" + hue + ", " + Math.round(params.colorSat) + "%, " + Math.round(params.colorLight) + "%)").getHex());
     }
     this.group.position.set(params.xPos, params.yPos, params.zPos);
     this.group.rotation.set(params.xRot, params.yRot, params.zRot);
@@ -117,7 +126,6 @@ class TextLineup {
       this.lerp(this.nextUp.position.z, this.names[selected].position.z, smoothing));
     this.nextUp.material = this.materials[selected];
     //this.nextUp.position.x += params.colorSat;
-
   }
 
 }

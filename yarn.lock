@@ -7687,6 +7687,16 @@ three-addons@^1.1.0:
   dependencies:
     three "^0.87.1"
 
+three-copyshader@0.0.1, three-copyshader@^0.0.1:
+  version "0.0.1"
+  resolved "https://registry.yarnpkg.com/three-copyshader/-/three-copyshader-0.0.1.tgz#ddfa6c3f5dbce596187cfbf4ce1b46c7fbd456c0"
+
+three-effectcomposer@0.0.1:
+  version "0.0.1"
+  resolved "https://registry.yarnpkg.com/three-effectcomposer/-/three-effectcomposer-0.0.1.tgz#09f438bfc76e522a985e5b8867d6b407eddd1d12"
+  dependencies:
+    three-copyshader "0.0.1"
+
 three@^0.87.1:
   version "0.87.1"
   resolved "https://registry.yarnpkg.com/three/-/three-0.87.1.tgz#466a34edc4543459ced9b9d7d276b65216fe2ba8"

@@ -142,6 +142,12 @@ module.exports = {
       min: -180,
       max: 180
     },
+    {
+      key: 'djHueOffset',
+      defaultValue: .5,
+      min: -180,
+      max: 180
+    },
 
   ],
   // Shots are single functions that can fire, as opposed to values that change
