@@ -3,7 +3,7 @@ const EffectComposer = require('three-effectcomposer')(THREE)
 import AudioAnalyzer from '../inputs/AudioAnalyzer'
 
 class Scene {
-  constructor() {
+  constructor () {
     this.scene = new THREE.Scene()
     this.camera = new THREE.PerspectiveCamera(75, null, 1, 1000000)
     this.camera.position.z = 1000
@@ -11,17 +11,17 @@ class Scene {
     var rend = new EffectComposer.RenderPass(this.scene, this.camera)
     this.post.addPass(rend)
     this.postEffects = []
-    this.renderPass = new EffectComposer.RenderPass(this.scene, this.camera);
-    this.addPost(this.renderPass);
-    this.analyzer = AudioAnalyzer;
+    this.renderPass = new EffectComposer.RenderPass(this.scene, this.camera)
+    this.addPost(this.renderPass)
+    this.analyzer = AudioAnalyzer
   }
 
-  setRatio(ratio) {
+  setRatio (ratio) {
     this.camera.aspect = ratio
     this.camera.updateProjectionMatrix()
   }
 
-  addPost(shader) {
+  addPost (shader) {
     if (this.postEffects.length > 0) {
       this.postEffects[this.postEffects.length - 1].renderToScreen = false
     }
@@ -29,7 +29,7 @@ class Scene {
     shader.renderToScreen = true
     this.post.addPass(shader)
   }
-  removePost(shader) {
+  removePost (shader) {
     var i = this.postEffects.indexOf(shader)
     if (i != -1) {
       this.postEffects.splice(i, 1)
@@ -41,7 +41,7 @@ class Scene {
     }
   }
 
-  render(scene, camera, renderTarget, forceClear) {
+  render (scene, camera, renderTarget, forceClear) {
     if (this.postEffects.length > 0) {
       this.renderer.autoClear = false
       this.renderer.setRenderTarget(null)

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 class AudioInput {
   static texture = null;
-  constructor(stream) {
+  constructor (stream) {
     const context = new window.AudioContext()
     const source = context.createMediaStreamSource(stream)
 
@@ -16,17 +16,17 @@ class AudioInput {
     // how much we reduce the clean bins value each frame, low numbers create a smoother release after sound bumps it up
     // stores the highest value we have received for each bin
     this.maxLevelsData = []
-    
+
     this.fullLevelsData = []
     this.fullCleanLevelsData = []
     this.fullMaxLevelsData = []
     this.textureData = new Uint8Array(this.analyser.frequencyBinCount)
-    
+
     this.levelsFalloff = 1
     // blends between the pure volume and a normalized result
     this.normalizeLevels = 0
-    //smoothes out the input
-    this.smoothing = 0;
+    // smoothes out the input
+    this.smoothing = 0
     // shaving a small amount off the max levels value each frame in case of a rare peak, quieter song, etc
     this.maxLevelFalloffMultiplier = 0.9999
     // stoping divide by zeros
@@ -45,33 +45,33 @@ class AudioInput {
     // Knocking off 500 redundant frequencies
     this.levelBins = Math.floor((this.analyser.frequencyBinCount - 500) / this.numBands)
 
-    //creating audio texture
-    AudioInput.texture = new THREE.DataTexture(self.data, this.analyser.frequencyBinCount, 1, THREE.LuminanceFormat);
-    AudioInput.texture.magFilter = AudioInput.texture.minFilter = THREE.LinearFilter;
+    // creating audio texture
+    AudioInput.texture = new THREE.DataTexture(self.data, this.analyser.frequencyBinCount, 1, THREE.LuminanceFormat)
+    AudioInput.texture.magFilter = AudioInput.texture.minFilter = THREE.LinearFilter
   }
 
-  lerp(v0, v1, t) {
-    return (1 - t) * v0 + t * v1;
+  lerp (v0, v1, t) {
+    return (1 - t) * v0 + t * v1
   }
 
-  update() {
+  update () {
     this.analyser.getByteFrequencyData(this.freqs)
 
-    for(let i = 0; i< this.freqs.length; i++){
-      var freq = this.freqs[i]/256;
+    for (let i = 0; i < this.freqs.length; i++) {
+      var freq = this.freqs[i] / 256
       freq = Math.max(freq, Math.max(0, this.fullCleanLevelsData[i] - this.levelsFalloff))
-      this.fullCleanLevelsData[i] = freq;
+      this.fullCleanLevelsData[i] = freq
       this.fullMaxLevelsData[i] = Math.max(this.fullMaxLevelsData[i] * this.maxLevelFalloffMultiplier, this.maxLevelMinimum)
       this.fullMaxLevelsData[i] = Math.max(this.fullMaxLevelsData[i], freq)
       var normalized = freq / this.fullMaxLevelsData[i]
       freq = this.lerp(freq, normalized, this.normalizeLevels)
       this.fullLevelsData[i] = this.lerp(freq, this.fullLevelsData[i], this.smoothing)
-      this.textureData[i] = Math.floor(this.fullLevelsData[i]*256);
+      this.textureData[i] = Math.floor(this.fullLevelsData[i] * 256)
     }
-    
-   AudioInput.texture.image.data = this.textureData;
 
-    AudioInput.texture.needsUpdate = true;
+    AudioInput.texture.image.data = this.textureData
+
+    AudioInput.texture.needsUpdate = true
 
     for (let i = 0; i < this.numBands; i++) {
       let sum = 0
@@ -86,7 +86,7 @@ class AudioInput {
       this.maxLevelsData[i] = Math.max(this.maxLevelsData[i] * this.maxLevelFalloffMultiplier, this.maxLevelMinimum)
       this.maxLevelsData[i] = Math.max(this.maxLevelsData[i], band)
       var normalized = band / this.maxLevelsData[i]
-      band = this.lerp(band, normalized, this.normalizeLevels);
+      band = this.lerp(band, normalized, this.normalizeLevels)
       this.levelsData[i] = this.lerp(band, this.levelsData[i], this.smoothing)
     }
 
