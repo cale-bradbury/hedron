@@ -1,15 +1,8 @@
 import 'babel-polyfill'
-
-import {
-  takeEvery,
-  put,
-  call
-} from 'redux-saga/effects'
-import * as a from './actions'
-import {
-  inputFired
-} from '../inputs/actions'
 import now from 'performance-now'
+import { takeEvery, put, call } from 'redux-saga/effects'
+import { inputFired } from '../inputs/actions'
+import * as a from './actions'
 
 const ppqn = 24
 let pulses, delta, beats, lastBar, totalBeats
@@ -25,7 +18,7 @@ export const clockReset = () => {
   lastBar = now()
 }
 export const clockSnap = () => {
-  if (pulses > 16) {
+  if (pulses > ppqn * 0.5) {
     beats++
     totalBeats++
     pulses = -1
@@ -42,7 +35,7 @@ export const newPulse = () => {
     seqStepCount = 0
   }
 
-  if (pulses > 23) {
+  if (pulses > ppqn - 1) {
     pulses = 0
     beats++
     totalBeats++
