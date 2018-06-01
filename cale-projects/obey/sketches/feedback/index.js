@@ -177,7 +177,7 @@ class Feedback {
       x: params.hue,
       y: params.saturation,
       z: params.brightness,
-      w: 0
+      w: 1+size.width/size.height
     }
     this.shift.uniforms.angle.value = {
       x: params.angleMin,

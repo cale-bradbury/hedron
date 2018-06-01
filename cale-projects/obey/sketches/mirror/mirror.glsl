@@ -3,6 +3,8 @@ uniform sampler2D tex;
 uniform int mirrorX;
 uniform int mirrorY;
 uniform float scale;
+uniform float blackX;
+uniform float blackY;
 
 void main(){
 	 vec2 p =local;
@@ -22,5 +24,8 @@ void main(){
       p.y = -abs(p.y);
     }
     p +=.5;
-	 gl_FragColor = texture2D(tex,p);
+    vec4 color = texture2D(tex,p);
+    color *= 1.-step(blackX,abs(local.x-.5));
+    color *= 1.-step(blackY,abs(local.y-.5));
+	 gl_FragColor = color;
 } 

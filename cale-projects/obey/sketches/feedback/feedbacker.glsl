@@ -92,6 +92,7 @@ void main(){
 	 vec2 u =local;
 	 vec3 new = texture2D(tex,u).rgb;
     u-=center.xy;
+    u.y/= hsb.w;
     float d = length(u);
     float a = atan(u.x,u.y);
     float f = abs((a/3.1416))+center.w;
@@ -111,6 +112,8 @@ void main(){
     u.y = cos(aa);
     u.x = sin(aa);
     u*=dd;
+    
+    u.y*= hsb.w;
     u+=center.xy;
     //u = abs(mod(u+1., 2.)-1.);
     vec3 old = texture2D(last,u).rgb;
@@ -120,6 +123,8 @@ void main(){
     u.y = cos(aa);
     u.x = sin(aa);
     u*=dd;
+    
+    u.y*= hsb.w;
     u+=center.xy;
     //u = abs(mod(u+1., 2.)-1.);
     old.g = texture2D(last,u).g;
@@ -129,6 +134,8 @@ void main(){
     u.y = cos(aa);
     u.x = sin(aa);
     u*=dd;
+    
+    u.y*= hsb.w;
     u+=center.xy;
     //u = abs(mod(u+1., 2.)-1.);
     old.b = texture2D(last,u).b;

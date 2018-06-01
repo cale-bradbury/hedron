@@ -18,6 +18,7 @@ class BigO {
     this.geometry = new THREE.PlaneGeometry(1, 1);
     var material = new THREE.MeshBasicMaterial({
       color: new THREE.Color("#ffffff"),
+      opacity: 1,
       transparent: true,
       map: this.texture
     });
@@ -33,6 +34,7 @@ class BigO {
   update(params, time, delta, allParams) {
     this.group.scale.set(params.scale, params.scale, params.scale)
     this.mesh.material.map = this.texture;
+    this.mesh.material.opacity = params.opacity;
     //console.log(this.camera);
   }
 

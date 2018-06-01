@@ -98,6 +98,7 @@ class WorleyWorld {
       z: 0
     }
     this.rotation = 0;
+    this.added = true;
   }
 
   lerp(v0, v1, t) {
@@ -116,6 +117,16 @@ class WorleyWorld {
   }
 
   update(params, time, delta, allParams) {
+    if(params.opacity==0 && this.added){
+      this.root.remove(this.plane);
+      this.added = false;
+    }else if(params.opacity!=0 && !this.added){
+      this.added = true;
+      this.root.add(this.plane);
+    }
+    if(!this.added){
+      return;
+    }
     this.material.uniforms.iTime.value = time / 60;
     this.position.x += params.xPos;
     this.position.y += params.yPos;

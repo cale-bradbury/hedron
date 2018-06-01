@@ -35,7 +35,7 @@ class Video {
 
         var source = document.createElement('source');
         source.setAttribute('type', 'video/mp4');
-        source.setAttribute('src', 'https://www.w3schools.com/html/mov_bbb.mp4');
+        source.setAttribute('src', 'D:/Personal/hedron/hedron/cale-projects/obey/img/sydanie.mp4');
         this.video.appendChild(source);
         document.body.appendChild(this.video);
       }
@@ -62,11 +62,13 @@ class Video {
                                               } );
     this.plane = new THREE.Mesh( geometry, this.material );
     this.root.add( this.plane );
+    this.stutterPoint = 0;
   }
 
   update (params, time, frameDiff, allParams) {
     this.material.uniforms.color.value ={ x: 1, y: 1, z: 1, w: params.opacity};
     this.video.loop = params.loops>.5;
+    this.plane.position.y = params.y;
     this.plane.scale.set(params.scale * params.ratio, params.scale, params.scale);
     if(params.depth!=this.plane.position.z)
       console.log(this.plane.position.z +"->"+params.depth);
@@ -87,6 +89,17 @@ class Video {
     this.video.currentTime = 0;
     this.video.play();
   }
+  
+  stutter(){
+    this.video.currentTime = this.stutterPoint;
+    this.video.play();
+    
+  }
+  
+  stutterSet(){
+    this.stutterPoint = this.video.currentTime;
+  }
+  
 }
 
 module.exports = Video

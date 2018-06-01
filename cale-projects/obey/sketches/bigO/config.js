@@ -33,6 +33,10 @@ module.exports = {
       min: .0001,
       max: 1500
     },
+    {
+      key: 'opacity',
+      defaultValue: 1,
+    },
 
 
   ],

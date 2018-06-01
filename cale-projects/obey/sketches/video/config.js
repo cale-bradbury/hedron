@@ -26,6 +26,13 @@ module.exports = {
       max: -5000
     },
     {
+      title: 'y',
+      key: 'y',
+      defaultValue: 0,
+      min: 0,
+      max: 1000
+    },
+    {
       title: 'scale',
       key: 'scale',
       defaultValue: 1,
@@ -45,6 +52,14 @@ module.exports = {
     {
       method: 'reset', // needs to be unique
       title: 'reset & play' // should be human
+    },
+    {
+      method: 'stutterSet', // needs to be unique
+      title: 'set' // should be human
+    },
+    {
+      method: 'stutter', // needs to be unique
+      title: 'stutter' // should be human
     }
   ]
 }
