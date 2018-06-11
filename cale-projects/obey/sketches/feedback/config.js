@@ -49,15 +49,15 @@ module.exports = {
       key: 'xShift',
       title: "min distance shift",
       defaultValue: .5,
-      min: -50,
-      max: 50
+      min: -100,
+      max: 100
     },
     {
       key: 'yShift',
       title: "max distance shift",
       defaultValue: .5,
-      min: -50,
-      max: 50
+      min: -100,
+      max: 100
     },
     {
       key: 'anglePhase',
