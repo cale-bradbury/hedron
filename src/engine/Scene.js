@@ -3,7 +3,8 @@ const EffectComposer = require('three-effectcomposer')(THREE)
 import AudioAnalyzer from '../inputs/AudioAnalyzer'
 
 class Scene {
-  constructor () {
+  constructor (renderer) {
+		this.renderer = renderer;
     this.scene = new THREE.Scene()
     this.camera = new THREE.PerspectiveCamera(75, null, 1, 1000000)
     this.camera.position.z = 1000
@@ -42,7 +43,7 @@ class Scene {
   }
 
   render (scene, camera, renderTarget, forceClear) {
-    if (this.postEffects.length > 0) {
+    if (this.postEffects.length > 1) {
       this.renderer.autoClear = false
       this.renderer.setRenderTarget(null)
       this.renderer.clear()

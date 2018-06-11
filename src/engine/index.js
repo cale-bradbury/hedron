@@ -43,7 +43,7 @@ export const loadSketchModules = (url) => {
 }
 
 export const addScene = (sceneId) => {
-  scenes[sceneId] = new Scene()
+  scenes[sceneId] = new Scene(renderer.renderer)
   renderer.setSize()
 }
 
