@@ -148,7 +148,7 @@ class Feedback {
   }
 
   update(params, time, delta, allParams) {
-    var size = this.renderer.getSize();
+    var size = this.scene.renderer.getSize();
     params.xShift /= size.width;
     params.yShift /= size.width;
     params.dShift /= 360 / 3.1415;

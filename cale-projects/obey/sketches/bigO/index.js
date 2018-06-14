@@ -34,8 +34,8 @@ class BigO {
   update(params, time, delta, allParams) {
     this.group.scale.set(params.scale, params.scale, params.scale)
     this.mesh.material.map = this.texture;
-    this.mesh.material.opacity = params.opacity;
-    //console.log(this.camera);
+    //this.mesh.material.opacity = params.opacity;
+		//console.log(params.opacity);
   }
 
 }
