@@ -2,6 +2,8 @@ import getSketchesPath from '../selectors/getSketchesPath'
 import { projectError } from '../store/project/actions'
 
 import * as engine from './'
+import * as renderer from './renderer'
+import { remote } from 'electron'
 
 export const handleAddScene = (action) => {
   const { sceneId } = action.payload
@@ -39,6 +41,17 @@ export const handleShotFired = (action) => {
   engine.fireShot(action.payload.sketchId, action.payload.method)
 }
 
+export const handleSaveImage = (action) => {
+  remote.dialog.showSaveDialog({
+			filters: [{ name: 'PNG Sequence', extensions: ['png'] }]
+		},
+		filePath => {
+			if (filePath) {
+				renderer.saveImage(filePath);
+			}
+		});
+}
+
 export default (action, store) => {
   switch (action.type) {
     case 'ENGINE_SCENE_SKETCH_ADD':
@@ -58,6 +71,9 @@ export default (action, store) => {
       break
     case 'NODE_SHOT_FIRED':
       handleShotFired(action, store)
+      break
+    case 'SAVE_IMAGE':
+      handleSaveImage(action, store)
       break
   }
 }

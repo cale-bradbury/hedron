@@ -17,3 +17,8 @@ export const engineSceneRemove = (sceneId) => ({
   type: 'ENGINE_SCENE_REMOVE',
   payload: { sceneId }
 })
+
+export const saveImage = (data) => ({
+  type: 'SAVE_IMAGE',
+  payload: { data }
+})

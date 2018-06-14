@@ -9,8 +9,6 @@ class Scene {
     this.camera = new THREE.PerspectiveCamera(75, null, 1, 1000000)
     this.camera.position.z = 1000
     this.post = new EffectComposer(this.renderer)
-    var rend = new EffectComposer.RenderPass(this.scene, this.camera)
-    this.post.addPass(rend)
     this.postEffects = []
     this.renderPass = new EffectComposer.RenderPass(this.scene, this.camera)
     this.addPost(this.renderPass)
@@ -27,7 +25,7 @@ class Scene {
       this.postEffects[this.postEffects.length - 1].renderToScreen = false
     }
     this.postEffects.push(shader)
-    shader.renderToScreen = true
+    shader.renderToScreen = false
     this.post.addPass(shader)
   }
   removePost (shader) {
@@ -35,7 +33,7 @@ class Scene {
     if (i != -1) {
       this.postEffects.splice(i, 1)
       if (this.postEffects.length > 0) {
-        this.postEffects[this.postEffects.length - 1].renderToScreen = true
+        this.postEffects[this.postEffects.length - 1].renderToScreen = false
       }
       i = this.post.passes.indexOf(shader)
       this.post.passes.splice(i, 1)
@@ -44,10 +42,16 @@ class Scene {
 
   render (scene, camera, renderTarget, forceClear) {
     if (this.postEffects.length > 1) {
-      this.renderer.autoClear = false
-      this.renderer.setRenderTarget(null)
-      this.renderer.clear()
+			if(renderTarget){
+				this.renderer.autoClear = false
+				this.renderer.clear();
+				this.postEffects[this.postEffects.length-1].renderToScreen = false;
+			}else{
+				this.postEffects[this.postEffects.length-1].renderToScreen = true;
+			}
+			this.renderer.setRenderTarget( null)
       this.post.renderer = this.renderer
+			this.post.reset(renderTarget);
       this.post.render()
     } else {
       this.renderer.render(scene, camera, renderTarget, forceClear)

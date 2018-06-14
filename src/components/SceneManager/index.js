@@ -62,7 +62,7 @@ const Item = ({ title, onClick, linkableActionId, color }) =>
 const SceneManager = (
   {
     items, onAddClick, currentScene, onDeleteClick, onRenameClick, onChannelClick,
-    onClearClick, onActiveClick, onOppositeClick
+    onClearClick, onActiveClick, onOppositeClick, onSaveClick
  }
 ) => {
   const la = currentScene && currentScene.linkableActionIds
@@ -120,6 +120,9 @@ const SceneManager = (
           <Col>
             <Button color='danger' onClick={() => { onDeleteClick(currentScene.id) }}>Delete</Button>
           </Col>
+          <Col>
+            <Button onClick={() => { onSaveClick() }}>Save Png</Button>
+          </Col>
         </Row>
       </Panel>
     }
@@ -136,6 +139,7 @@ SceneManager.propTypes = {
   onClearClick: PropTypes.func.isRequired,
   onActiveClick: PropTypes.func.isRequired,
   onOppositeClick: PropTypes.func.isRequired,
+  onSaveClick: PropTypes.func.isRequired,
   items: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string,

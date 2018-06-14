@@ -2,9 +2,9 @@ import * as THREE from 'three'
 import uiEventEmitter from '../utils/uiEventEmitter'
 import * as engine from './'
 import QuadScene from './QuadScene'
+var fs = require('fs');
 
-let store, domEl, outputEl, viewerEl, isSendingOutput, rendererWidth, rendererHeight,
-  previewCanvas, previewContext, outputCanvas, outputContext
+let store, domEl, outputEl, viewerEl, isSendingOutput, rendererWidth, rendererHeight, previewCanvas, previewContext, outputCanvas, outputContext
 
 let quadScene, rttA, rttB
 
@@ -38,6 +38,8 @@ export const setViewerEl = (el) => {
 
 export const setSize = () => {
   const settings = store.getState().settings
+	if(settings.aspectW == 0 || settings.aspectH == 0)
+		return;
   let width, ratio
 
   if (isSendingOutput) {
@@ -57,7 +59,6 @@ export const setSize = () => {
     width = viewerEl.offsetWidth
     ratio = settings.aspectW / settings.aspectH
   }
-
   const perc = 100 / ratio
   const height = width / ratio
 
@@ -128,7 +129,6 @@ export const setOutput = (win) => {
   isSendingOutput = true
 
   setSize()
-
   win.addEventListener('resize', () => {
     uiEventEmitter.emit('repaint')
   })
@@ -171,16 +171,24 @@ const copyPixels = (context) => {
   context.drawImage(renderer.domElement, 0, 0, rendererWidth, rendererHeight)
 }
 
+export const saveImage = (path, count = 1) => {
+	if(count!=1)
+		path = path.replace('.png', '#.png');
+	this.savePath = path;
+	this.saveCount = count;
+	this.saveIndex = 0;
+}
+
 export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
   quadScene.material.uniforms.mixRatio.value = mixRatio
   let mixState = 'mix'
-
+	
   if (mixRatio === 0) {
     mixState = 'A'
   } else if (mixRatio === 1) {
     mixState = 'B'
   }
-
+	
   if (!isSendingOutput) {
     // Always using dom element when not outputting
     if (previewCanvas) previewCanvas.style.display = 'none'
@@ -215,4 +223,20 @@ export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
       copyPixels(previewContext)
     }
   }
+	if(this.savePath){
+		var num = this.saveIndex+'';
+		while(num.length<this.saveCount.length)
+			num = "0"+num;
+		var path = this.savePath.replace('#', num);
+		
+		this.saveIndex++;
+		if(this.saveIndex>=this.saveCount)
+			this.savePath = null;
+		
+		console.log("saving frame to "+path);
+		var data = domEl.toDataURL("image/png");		
+		data = data.slice(data.indexOf(',')+1);//.replace(/\s/g,'+');
+		var buffer = new Buffer(data, 'base64');
+		fs.writeFile(path, buffer, (e)=>{console.log(e)})		
+	}
 }
