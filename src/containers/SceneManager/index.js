@@ -8,7 +8,7 @@ import {
 }
   from '../../store/scenes/actions'
 import { uiEditingOpen } from '../../store/ui/actions'
-import {saveImage} from '../../engine/actions'
+import { saveImage } from '../../engine/actions'
 
 const mapStateToProps = (state, ownProps) => (
   {
@@ -41,7 +41,6 @@ const mapDispatchToProps = (dispatch, ownProps) => (
       dispatch(rSceneSelectChannel(sceneId, channel))
     },
     onSaveClick: () => {
-			console.log(saveImage)
       dispatch(saveImage({}))
     }
   }

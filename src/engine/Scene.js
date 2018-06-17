@@ -4,7 +4,7 @@ import AudioAnalyzer from '../inputs/AudioAnalyzer'
 
 class Scene {
   constructor (renderer) {
-		this.renderer = renderer;
+    this.renderer = renderer
     this.scene = new THREE.Scene()
     this.camera = new THREE.PerspectiveCamera(75, null, 1, 1000000)
     this.camera.position.z = 1000
@@ -42,16 +42,16 @@ class Scene {
 
   render (scene, camera, renderTarget, forceClear) {
     if (this.postEffects.length > 1) {
-			if(renderTarget){
-				this.renderer.autoClear = false
-				this.renderer.clear();
-				this.postEffects[this.postEffects.length-1].renderToScreen = false;
-			}else{
-				this.postEffects[this.postEffects.length-1].renderToScreen = true;
-			}
-			this.renderer.setRenderTarget( null)
+      if (renderTarget) {
+        this.renderer.autoClear = false
+        this.renderer.clear()
+        this.postEffects[this.postEffects.length - 1].renderToScreen = false
+      } else {
+        this.postEffects[this.postEffects.length - 1].renderToScreen = true
+      }
+      this.renderer.setRenderTarget(null)
       this.post.renderer = this.renderer
-			this.post.reset(renderTarget);
+      this.post.reset(renderTarget)
       this.post.render()
     } else {
       this.renderer.render(scene, camera, renderTarget, forceClear)

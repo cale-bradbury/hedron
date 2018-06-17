@@ -43,13 +43,13 @@ export const handleShotFired = (action) => {
 
 export const handleSaveImage = (action) => {
   remote.dialog.showSaveDialog({
-			filters: [{ name: 'PNG Sequence', extensions: ['png'] }]
-		},
+    filters: [{ name: 'PNG Sequence', extensions: ['png'] }]
+  },
 		filePath => {
-			if (filePath) {
-				renderer.saveImage(filePath);
-			}
-		});
+  if (filePath) {
+    renderer.saveImage(filePath)
+  }
+})
 }
 
 export default (action, store) => {
