@@ -3,6 +3,7 @@ import now from 'performance-now'
 import { takeEvery, put, call } from 'redux-saga/effects'
 import { inputFired } from '../inputs/actions'
 import * as a from './actions'
+import { tap } from '../../inputs/GeneratedClock'
 
 const ppqn = 24
 let pulses, delta, beats, lastBar, totalBeats
@@ -79,10 +80,16 @@ export function* clockUpdate () {
   }
 }
 
+export function* tapTempo(){
+  tap()
+	clockSnap();
+}
+
 export function* watchClock () {
   yield takeEvery('CLOCK_PULSE', clockUpdate)
   yield takeEvery('CLOCK_RESET', clockReset)
   yield takeEvery('CLOCK_SNAP', clockSnap)
+	yield takeEvery('TAP_TEMPO', tapTempo)
 }
 
 clockReset()

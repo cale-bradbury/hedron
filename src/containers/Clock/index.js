@@ -1,7 +1,6 @@
 import { connect } from 'react-redux'
 import Clock from '../../components/Clock'
-import { clockReset, clockSnap } from '../../store/clock/actions'
-import { tap } from '../../inputs/GeneratedClock'
+import { clockReset, clockSnap, tapTempo } from '../../store/clock/actions'
 import getClockBpm from '../../selectors/getClockBpm'
 
 const mapStateToProps = (state, ownProps) => ({
@@ -13,10 +12,7 @@ const mapStateToProps = (state, ownProps) => ({
 
 const mapDispatchToProps = (dispatch, ownProps) => ({
   onResetClick: () => { dispatch(clockReset()) },
-  onTapTempoClick: () => {
-    tap()
-    dispatch(clockSnap())
-  }
+  onTapTempoClick: () => { dispatch(tapTempo()) }
 })
 
 export default connect(
