@@ -72,7 +72,8 @@ export const removeSketchFromScene = (sceneId, sketchId) => {
 
 export const fireShot = (sketchId, method) => {
   const state = store.getState()
-  sketches[sketchId][method](getSketchParams(state, sketchId))
+	if(sketches[sketchId][method])
+  	sketches[sketchId][method](getSketchParams(state, sketchId))
 }
 
 export const initiateScenes = () => {

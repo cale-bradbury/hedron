@@ -29,6 +29,11 @@ const projectMenu = {
     {
       label: 'Settings',
       click: () => { onClick('project-settings') }
+    },
+    {
+      label: 'Export',
+      click: () => { onClick('project-export-settings') },
+      accelerator: 'CommandOrControl+M'
     }
   ]
 }

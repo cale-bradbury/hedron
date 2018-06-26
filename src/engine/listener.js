@@ -3,7 +3,6 @@ import { projectError } from '../store/project/actions'
 
 import * as engine from './'
 import * as renderer from './renderer'
-import { remote } from 'electron'
 
 export const handleAddScene = (action) => {
   const { sceneId } = action.payload
@@ -42,14 +41,7 @@ export const handleShotFired = (action) => {
 }
 
 export const handleSaveImage = (action) => {
-  remote.dialog.showSaveDialog({
-    filters: [{ name: 'PNG Sequence', extensions: ['png'] }]
-  },
-		filePath => {
-  if (filePath) {
-    renderer.saveImage(filePath)
-  }
-})
+  renderer.saveSequence();
 }
 
 export default (action, store) => {

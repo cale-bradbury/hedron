@@ -19,6 +19,12 @@ class Scene {
     this.camera.aspect = ratio
     this.camera.updateProjectionMatrix()
   }
+	
+	setSize(width, height){
+    this.post.setSize(width, height)
+		this.renderer.setSize(width, height)
+		this.setRatio(width/height);
+	}
 
   addPost (shader) {
     if (this.postEffects.length > 0) {

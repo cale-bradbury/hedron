@@ -2,7 +2,12 @@ import * as THREE from 'three'
 import uiEventEmitter from '../utils/uiEventEmitter'
 import * as engine from './'
 import QuadScene from './QuadScene'
+import { clockPulse, clockReset } from '../store/clock/actions'
+import { settingsUpdate } from '../store/settings/actions'
 var fs = require('fs')
+var child_process = require('child_process')
+import { remote } from 'electron'
+import {fireShot} from './'
 
 let store, domEl, outputEl, viewerEl, isSendingOutput, rendererWidth, rendererHeight, previewCanvas, previewContext, outputCanvas, outputContext
 
@@ -42,12 +47,18 @@ export const setViewerEl = (el) => {
   viewerEl = el
 }
 
-export const setSize = () => {
+export const setSize = (w = -1) => {
   const settings = store.getState().settings
+	if(this.savePath)
+		w = store.getState().exportSettings.gifWidth
   if (settings.aspectW == 0 || settings.aspectH == 0) { return }
   let width, ratio
 
-  if (isSendingOutput) {
+	if(w!=-1){
+		width = w;
+		ratio = settings.aspectW / settings.aspectH;
+	}
+  else if (isSendingOutput) {
     // Get width and ratio from output window
     width = outputEl.offsetWidth
     ratio = width / outputEl.offsetHeight
@@ -79,8 +90,7 @@ export const setSize = () => {
   // Set ratios for each scene
   const engineScenes = engine.scenes
   for (const key in engineScenes) {
-    engineScenes[key].renderer.setSize(width, height)
-    engineScenes[key].setRatio(ratio)
+    engineScenes[key].setSize(width, height)
   }
 
   rendererWidth = width
@@ -177,11 +187,27 @@ const copyPixels = (context) => {
   context.drawImage(renderer.domElement, 0, 0, rendererWidth, rendererHeight)
 }
 
-export const saveImage = (path, count = 1) => {
-  if (count != 1) { path = path.replace('.png', '#.png') }
-  this.savePath = path
-  this.saveCount = count
-  this.saveIndex = 0
+export const saveSequence = () => {
+	remote.dialog.showOpenDialog({
+		properties: ['openDirectory']
+	},
+	path => {
+		if (path) {
+			const settings = store.getState().exportSettings;
+			this.savePath = path.toString();
+			this.saveName = settings.gifName;
+			this.saveCount = settings.gifFrames
+			this.savePrewarm = settings.gifWarmup
+			this.saveBatch = settings.gifGenerate;
+			this.saveBatchIndex = 0;
+			this.saveIndex = 0
+			store.dispatch(settingsUpdate({clockGenerated: false, aspectW:settings.gifWidth, aspectH:settings.gifHeight}));
+			setSize(settings.gifWidth);
+			store.dispatch(clockReset());
+			store.dispatch(clockPulse());
+		}
+	})
+ 
 }
 
 export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
@@ -228,18 +254,48 @@ export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
       copyPixels(previewContext)
     }
   }
+	
   if (this.savePath) {
-    var num = this.saveIndex + ''
-    while (num.length < this.saveCount.length) { num = '0' + num }
-    var path = this.savePath.replace('#', num)
+		if(this.savePrewarm > 0){
+			this.savePrewarm--;
+		}else{
+			var num = this.saveIndex + ''
+			var numberLength = this.saveCount.toString().length;
+			while (num.length < numberLength) { num = '0' + num }
+			var path = this.savePath +'\\'+this.saveName+num+".png";
 
-    this.saveIndex++
-    if (this.saveIndex >= this.saveCount) { this.savePath = null }
-
-    console.log('saving frame to ' + path)
-    var data = domEl.toDataURL('image/png')
-    data = data.slice(data.indexOf(',') + 1)// .replace(/\s/g,'+');
-    var buffer = new Buffer(data, 'base64')
-    fs.writeFile(path, buffer, (e) => { console.log(e) })
+			var data = domEl.toDataURL('image/png')
+			data = data.slice(data.indexOf(',') + 1)// .replace(/\s/g,'+');
+			var buffer = new Buffer(data, 'base64')
+			fs.writeFileSync(path, buffer, (e) => { if(e) console.log(e) })
+			this.saveIndex++
+			if (this.saveIndex >= this.saveCount) { 
+				var convertName = this.saveName;
+				if(this.saveBatch>1)
+					convertName+='_'+this.saveBatchIndex;
+				
+				child_process.execSync('gif.py '+convertName+' -cwd '+this.saveName+' -v -g', {cwd:this.savePath})
+				
+				fs.writeFileSync(this.savePath +'\\'+convertName+"_cover.png", buffer, (e) => { if(e) console.log(e) })
+				
+				var keys = Object.keys(store.getState().sketches)
+				for(var i = 0; i<keys.length; i++){
+					fireShot(keys[i], 'randomize');
+				}
+				this.saveBatchIndex++;
+				if(this.saveBatchIndex<this.saveBatch){
+					const settings = store.getState().exportSettings;
+					this.saveName = settings.gifName
+					this.saveIndex = 0
+					this.savePrewarm = settings.gifWarmup;
+					store.dispatch(clockReset());
+				}else{
+					this.savePath = null;
+					store.dispatch(settingsUpdate({clockGenerated: true}));
+					setSize();		
+				}
+			}
+		}
+		store.dispatch(clockPulse());
   }
 }

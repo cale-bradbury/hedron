@@ -22,5 +22,8 @@ ipcRenderer.on('app-menu-click', (e, id, ...args) => {
     case 'project-settings':
       history.push('/settings')
       break
+    case 'project-export-settings':
+      history.push('/exportSettings')
+      break
   }
 })
