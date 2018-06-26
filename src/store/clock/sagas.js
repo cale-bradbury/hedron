@@ -1,11 +1,14 @@
 import 'babel-polyfill'
+import uid from 'uid'
 import now from 'performance-now'
 import { takeEvery, put, call } from 'redux-saga/effects'
 import { inputFired } from '../inputs/actions'
 import * as a from './actions'
+import { linkableActionCreate } from '../../store/linkableActions/actions'
 import { tap } from '../../inputs/GeneratedClock'
+import { uNodeCreate } from '../nodes/actions'
 
-const ppqn = 24
+const ppqn = 60
 let pulses, delta, beats, lastBar, totalBeats
 let seqStepCount = 0 // Sequencer step count
 const ppSeqStep = ppqn / 8 // Pulses per 8th beat
@@ -86,10 +89,19 @@ export function* tapTempo(){
 }
 
 export function* watchClock () {
+	
   yield takeEvery('CLOCK_PULSE', clockUpdate)
   yield takeEvery('CLOCK_RESET', clockReset)
   yield takeEvery('CLOCK_SNAP', clockSnap)
 	yield takeEvery('TAP_TEMPO', tapTempo)
+	yield put(uNodeCreate("onTapTempoNode", {
+        title: 'onTapTempoNode',
+        type: 'shot',
+        id: 'onTapTempoNode',
+        inputLinkIds: ['onTapTempoNode']
+      }))
+	
+	yield put(linkableActionCreate('onTapTempoNode', a.tapTempo()))
 }
 
 clockReset()
