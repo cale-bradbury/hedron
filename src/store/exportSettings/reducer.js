@@ -4,7 +4,8 @@ const defaultState = {
 	gifFrames: 60,
 	gifWarmup: 0,
 	gifGenerate: 1,
-	gifName: "gifName"
+	gifName: "gifName",
+    gifPath: "C:\\Gif"
 }
 
 const exportSettingsReducer = (state = defaultState, action) => {

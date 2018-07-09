@@ -193,21 +193,27 @@ export const saveSequence = () => {
 	},
 	path => {
 		if (path) {
-			const settings = store.getState().exportSettings;
-			this.savePath = path.toString();
-			this.saveName = settings.gifName;
-			this.saveCount = settings.gifFrames
-			this.savePrewarm = settings.gifWarmup
-			this.saveBatch = settings.gifGenerate;
-			this.saveBatchIndex = 0;
-			this.saveIndex = 0
-			store.dispatch(settingsUpdate({clockGenerated: false, aspectW:settings.gifWidth, aspectH:settings.gifHeight}));
-			setSize(settings.gifWidth);
-			store.dispatch(clockReset());
-			store.dispatch(clockPulse());
+			beginSaveSequence(path);
 		}
 	})
- 
+}
+
+export const beginSaveSequence = () =>{
+  const settings = store.getState().exportSettings;
+  this.savePath = settings.gifPath+"\\"+settings.gifName; //path.toString();
+  if (!fs.existsSync(this.savePath)){
+      fs.mkdirSync(this.savePath);
+  }
+  this.saveName = settings.gifName;
+  this.saveCount = settings.gifFrames
+  this.savePrewarm = settings.gifWarmup
+  this.saveBatch = settings.gifGenerate;
+  this.saveBatchIndex = 0;
+  this.saveIndex = 0
+  store.dispatch(settingsUpdate({clockGenerated: false, aspectW:settings.gifWidth, aspectH:settings.gifHeight}));
+  setSize(settings.gifWidth);
+  store.dispatch(clockReset());
+  store.dispatch(clockPulse());
 }
 
 export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
