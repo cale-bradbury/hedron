@@ -48,6 +48,10 @@ class Mirror {
     scene.addPost(this.mirror);
 
   }
+  
+  destructor(scene){
+    scene.removePost(this.mirror);
+  }
 
 
   mirrorX() {

@@ -187,6 +187,12 @@ class Feedback {
     }
     //console.log(this.camera);
   }
+  
+  destructor(scene){
+    scene.removePost(this.shift);
+    scene.removePost(this.save);
+    scene.removePost(this.postSave);
+  }
 
 }
 
