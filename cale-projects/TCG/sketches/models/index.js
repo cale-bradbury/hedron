@@ -56,7 +56,7 @@ class Models {
   }
 	
   randomize () {
-	
+	return {rotZ:Math.random()}
   }
 
   next () {
