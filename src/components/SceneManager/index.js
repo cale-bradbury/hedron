@@ -62,7 +62,7 @@ const Item = ({ title, onClick, linkableActionId, color }) =>
 const SceneManager = (
   {
     items, onAddClick, currentScene, onDeleteClick, onRenameClick, onChannelClick,
-    onClearClick, onActiveClick, onOppositeClick, onSaveClick
+    onClearClick, onActiveClick, onOppositeClick, onSaveClick, onRandomClick
  }
 ) => {
   const la = currentScene && currentScene.linkableActionIds
@@ -122,6 +122,7 @@ const SceneManager = (
           </Col>
           <Col>
             <Button onClick={() => { onSaveClick() }}>Save Png</Button>
+            <Button onClick={() => { onRandomClick() }}>Randomize</Button>
           </Col>
         </Row>
       </Panel>
@@ -140,6 +141,7 @@ SceneManager.propTypes = {
   onActiveClick: PropTypes.func.isRequired,
   onOppositeClick: PropTypes.func.isRequired,
   onSaveClick: PropTypes.func.isRequired,
+  onRandomKick: PropTypes.func.isRequired,
   items: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string,

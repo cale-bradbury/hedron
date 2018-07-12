@@ -43,6 +43,12 @@ export const handleShotFired = (action) => {
 export const handleSaveImage = (action) => {
   renderer.saveSequence();
 }
+export const handleRandomizeAll = (action, store) => {
+  var keys = Object.keys(store.getState().sketches)
+  for(var i = 0; i<keys.length; i++){
+      engine.fireShot(keys[i], 'randomize');
+  }
+}
 
 export default (action, store) => {
   switch (action.type) {
@@ -66,6 +72,9 @@ export default (action, store) => {
       break
     case 'SAVE_IMAGE':
       handleSaveImage(action, store)
+      break
+    case 'RANDOMIZE_ALL':
+      handleRandomizeAll(action, store)
       break
   }
 }
