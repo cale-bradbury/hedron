@@ -273,7 +273,7 @@ export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
 			var data = domEl.toDataURL('image/png')
 			data = data.slice(data.indexOf(',') + 1)// .replace(/\s/g,'+');
 			var buffer = new Buffer(data, 'base64')
-			fs.writeFileSync(path, buffer, (e) => { if(e) console.log(e) })
+			fs.writeFileSync(path, buffer, (e) => { if(e) console.log(e); this.saveIndex++ })
 			this.saveIndex++
 			if (this.saveIndex >= this.saveCount) { 
 				var convertName = this.saveName;
@@ -284,10 +284,12 @@ export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
 				
 				fs.writeFileSync(this.savePath +'\\'+convertName+"_cover.png", buffer, (e) => { if(e) console.log(e) })
 				
+              // ------ Call All randomize fuinctions
 				var keys = Object.keys(store.getState().sketches)
 				for(var i = 0; i<keys.length; i++){
 					fireShot(keys[i], 'randomize');
 				}
+              
 				this.saveBatchIndex++;
 				if(this.saveBatchIndex<this.saveBatch){
 					const settings = store.getState().exportSettings;
