@@ -141,7 +141,7 @@ SceneManager.propTypes = {
   onActiveClick: PropTypes.func.isRequired,
   onOppositeClick: PropTypes.func.isRequired,
   onSaveClick: PropTypes.func.isRequired,
-  onRandomKick: PropTypes.func.isRequired,
+  onRandomClick: PropTypes.func.isRequired,
   items: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string,
