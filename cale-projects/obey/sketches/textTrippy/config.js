@@ -76,7 +76,9 @@ module.exports = {
     },
     {
       key: 'ampZ',
-      defaultValue: 0
+      defaultValue: .5,
+      min:0,
+      max:2
     },
 
     {
@@ -129,8 +131,10 @@ module.exports = {
       defaultValue: 0
     },
     {
-      key: 'colorSpeed',
-      defaultValue: 0.5
+      key: 'colorPhase',
+      defaultValue: 0.5,
+      min:0,
+      max: 360//6.28318530718
     },
     {
       key: 'colorFreq',
@@ -160,8 +164,16 @@ module.exports = {
   // e.g. Explosions, Pre-defined animations
   shots: [
     {
+      method: 'randomize', // needs to be unique
+      title: 'randomize' // should be human
+    },
+    {
       method: 'invertFirst', // needs to be unique
       title: 'invert first' // should be human
+    },
+    {
+      method: 'toggleText', // needs to be unique
+      title: 'toggleText' // should be human
     }
   ]
 }

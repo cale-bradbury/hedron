@@ -1,7 +1,5 @@
 const THREE = require('three')
 const OBJLoader = require('./OBJLoader')
-const project = require('../../project.json')
-
 const lerp = (v0, v1, t) => {
 	return (1 - t) * v0 + t * v1
 }
@@ -36,7 +34,7 @@ class Models {
     
     var loader = new THREE.OBJLoader();
     for(var i = 0; i< paths.length; i++){
-      loader.load(project.project.filePath.substr(0, project.project.filePath.lastIndexOf('\\')) + "\\sketches\\models\\models\\"+paths[i], (o)=>{
+      loader.load(__dirname + "\\models\\"+paths[i], (o)=>{
         o.material = this.material;
         //this.meshes.push(o);
         this.meshes.push(new THREE.Mesh(o.children[0].geometry, this.basicMat));

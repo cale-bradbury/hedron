@@ -16,7 +16,9 @@ class Text {
     this.names = []
 
     var font = new THREE.Font(fontJson);
-    this.geometry = new THREE.TextGeometry('OBEY', {
+    this.text = [".gif",".jif"]
+    this.textIndex = 0;
+    this.geometry = new THREE.TextGeometry(this.text[0], {
       size: 1,
       height: 1,
       font: font,
@@ -25,7 +27,6 @@ class Text {
     })
     this.geometry.center()
 
-    this.colorPhase = 0;
     this.invert = false;
   }
 
@@ -36,6 +37,35 @@ class Text {
   invertFirst() {
     this.invert = !this.invert;
   }
+  
+  randomize(){
+    return{
+      rotX: Math.random(),
+      rotY: Math.random(),
+      ampX: Math.random(),
+      ampY: Math.random(),
+      ampZ: Math.random(),
+      freqX: Math.random(),
+      freqY: Math.random(),
+      freqZ: Math.random()
+    }
+  }
+  
+  toggleText(){
+    this.textIndex++;
+    this.textIndex%= text.length
+    this.geometry = new THREE.TextGeometry(this.text[this.textIndex], {
+      size: 1,
+      height: 1,
+      font: font,
+      style: 'normal',
+      weight: 'normal'
+    })
+    this.geometry.center()
+    for (var i = 0; i < this.names.length; i++) {
+      this.names[i].geometry = this.geometry;
+    }
+  }
 
   update(params, time, delta, allParams) {
     if (this.geometry == null)
@@ -44,8 +74,6 @@ class Text {
     var tau = 6.28;
     time = time / 60;
 
-    this.colorPhase += delta * 60 * (params.colorSpeed - .5) + 360;
-    this.colorPhase %= 360;
 
     var remainder = params.count * 100;
     var targetCount = Math.ceil(remainder);
@@ -84,7 +112,7 @@ class Text {
 
 
         var s = this.lerp(params.scaleStart, params.scaleEnd, f);
-        s += Math.sin(params.phaseZ * tau + i * params.freqZ) * params.ampZ + params.ampZ;
+        s += Math.sin(params.phaseZ * tau + i * params.freqZ) * params.ampZ;
         s = Math.max(s, .000001);
         this.names[i].scale.set(s, s, params.thickness)
 
