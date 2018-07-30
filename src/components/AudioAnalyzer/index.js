@@ -113,6 +113,7 @@ class AudioAnalyzer extends React.Component {
           <Control nodeId='audioLevelsFalloff' />
           <Control nodeId='audioLevelsPeakFalloff' />
           <Control nodeId='audioLevelsSmoothing' />
+          <Control nodeId='audioLevelsPower' />
         </SettingsBox>
       </Wrapper>
     )
