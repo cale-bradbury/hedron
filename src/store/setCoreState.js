@@ -37,7 +37,7 @@ export default store => {
       ]
     }
   ))
-  
+
   store.dispatch(uNodeCreate('audioLevelsPeakFalloff', {
     title: 'Levels Peak Falloff',
     type: 'param',

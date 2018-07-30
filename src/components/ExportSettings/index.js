@@ -12,7 +12,7 @@ const Wrapper = styled.div`
   flex-direction: column;
 `
 
-const ExportSettings = ({onSaveClick}) => (
+const ExportSettings = ({ onSaveClick }) => (
   <Wrapper>
     <ViewHeader>Settings</ViewHeader>
     <form onSubmit={e => e.preventDefault()}>
@@ -44,7 +44,7 @@ const ExportSettings = ({onSaveClick}) => (
         </Col>
       </Row>
       <Row>
-         <Col width='16rem'>
+        <Col width='16rem'>
           <Input name='gifPath' label='Path' type='text' />
         </Col>
       </Row>

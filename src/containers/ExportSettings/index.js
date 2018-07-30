@@ -3,7 +3,7 @@ import ExportSettingsComponent from '../../components/ExportSettings'
 import { exportSettingsUpdate } from '../../store/exportSettings/actions'
 import uiEventEmitter from '../../utils/uiEventEmitter'
 import { reduxForm } from 'redux-form'
-import {beginSaveSequence} from '../../engine/renderer'
+import { beginSaveSequence } from '../../engine/renderer'
 
 const mapStateToProps = (state, ownProps) => ({
   initialValues: state.exportSettings,
@@ -13,11 +13,11 @@ const mapStateToProps = (state, ownProps) => ({
 const mapDispatchToProps = (dispatch, ownProps) => ({
   onChange: (values) => {
     dispatch(exportSettingsUpdate(values))
-    //uiEventEmitter.emit('repaint')
+    // uiEventEmitter.emit('repaint')
   },
   onSaveClick: () => {
-    console.log(ownProps);
-    beginSaveSequence(ownProps.gifPath+"\\"+ownProps.gifName);
+    console.log(ownProps)
+    beginSaveSequence(ownProps.gifPath + '\\' + ownProps.gifName)
   }
 })
 

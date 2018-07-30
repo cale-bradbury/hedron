@@ -83,25 +83,24 @@ export function* clockUpdate () {
   }
 }
 
-export function* tapTempo(){
+export function* tapTempo () {
   tap()
-	clockSnap();
+  clockSnap()
 }
 
 export function* watchClock () {
-	
   yield takeEvery('CLOCK_PULSE', clockUpdate)
   yield takeEvery('CLOCK_RESET', clockReset)
   yield takeEvery('CLOCK_SNAP', clockSnap)
-	yield takeEvery('TAP_TEMPO', tapTempo)
-	yield put(uNodeCreate("onTapTempoNode", {
-        title: 'onTapTempoNode',
-        type: 'shot',
-        id: 'onTapTempoNode',
-        inputLinkIds: ['onTapTempoNode']
-      }))
-	
-	yield put(linkableActionCreate('onTapTempoNode', a.tapTempo()))
+  yield takeEvery('TAP_TEMPO', tapTempo)
+  yield put(uNodeCreate('onTapTempoNode', {
+    title: 'onTapTempoNode',
+    type: 'shot',
+    id: 'onTapTempoNode',
+    inputLinkIds: ['onTapTempoNode']
+  }))
+
+  yield put(linkableActionCreate('onTapTempoNode', a.tapTempo()))
 }
 
 clockReset()

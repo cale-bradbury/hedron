@@ -25,5 +25,5 @@ export const saveImage = (data) => ({
 
 export const randomizeAll = () => ({
   type: 'RANDOMIZE_ALL',
-  payload: {  }
+  payload: { }
 })
