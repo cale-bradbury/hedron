@@ -43,7 +43,7 @@ const reducers = combineReducers({
   ui: ignoreActions(uiReducer, ignoreList),
   router: ignoreActions(routerReducer, ignoreList),
   settings: ignoreActions(settingsReducer, ignoreList),
-	exportSettings: ignoreActions(exportSettingsReducer, ignoreList),
+  exportSettings: ignoreActions(exportSettingsReducer, ignoreList),
   form: ignoreActions(formReducer, ignoreList)
 })
 

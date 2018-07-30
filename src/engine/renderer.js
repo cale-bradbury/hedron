@@ -7,7 +7,7 @@ import { settingsUpdate } from '../store/settings/actions'
 var fs = require('fs')
 var child_process = require('child_process')
 import { remote } from 'electron'
-import {fireShot} from './'
+import { fireShot } from './'
 
 let store, domEl, outputEl, viewerEl, isSendingOutput, rendererWidth, rendererHeight, previewCanvas, previewContext, outputCanvas, outputContext
 
@@ -49,16 +49,14 @@ export const setViewerEl = (el) => {
 
 export const setSize = (w = -1) => {
   const settings = store.getState().settings
-	if(this.savePath)
-		w = store.getState().exportSettings.gifWidth
+  if (this.savePath) { w = store.getState().exportSettings.gifWidth }
   if (settings.aspectW == 0 || settings.aspectH == 0) { return }
   let width, ratio
 
-	if(w!=-1){
-		width = w;
-		ratio = settings.aspectW / settings.aspectH;
-	}
-  else if (isSendingOutput) {
+  if (w != -1) {
+    width = w
+    ratio = settings.aspectW / settings.aspectH
+  } else if (isSendingOutput) {
     // Get width and ratio from output window
     width = outputEl.offsetWidth
     ratio = width / outputEl.offsetHeight
@@ -188,32 +186,32 @@ const copyPixels = (context) => {
 }
 
 export const saveSequence = () => {
-	remote.dialog.showOpenDialog({
-		properties: ['openDirectory']
-	},
+  remote.dialog.showOpenDialog({
+    properties: ['openDirectory']
+  },
 	path => {
-		if (path) {
-			beginSaveSequence(path);
-		}
-	})
+  if (path) {
+    beginSaveSequence(path)
+  }
+})
 }
 
-export const beginSaveSequence = () =>{
-  const settings = store.getState().exportSettings;
-  this.savePath = settings.gifPath+"\\"+settings.gifName; //path.toString();
-  if (!fs.existsSync(this.savePath)){
-      fs.mkdirSync(this.savePath);
+export const beginSaveSequence = () => {
+  const settings = store.getState().exportSettings
+  this.savePath = settings.gifPath + '\\' + settings.gifName // path.toString();
+  if (!fs.existsSync(this.savePath)) {
+    fs.mkdirSync(this.savePath)
   }
-  this.saveName = settings.gifName;
+  this.saveName = settings.gifName
   this.saveCount = settings.gifFrames
   this.savePrewarm = settings.gifWarmup
-  this.saveBatch = settings.gifGenerate;
-  this.saveBatchIndex = 0;
+  this.saveBatch = settings.gifGenerate
+  this.saveBatchIndex = 0
   this.saveIndex = 0
-  store.dispatch(settingsUpdate({clockGenerated: false, aspectW:settings.gifWidth, aspectH:settings.gifHeight}));
-  setSize(settings.gifWidth);
-  store.dispatch(clockReset());
-  store.dispatch(clockPulse());
+  store.dispatch(settingsUpdate({ clockGenerated: false, aspectW:settings.gifWidth, aspectH:settings.gifHeight }))
+  setSize(settings.gifWidth)
+  store.dispatch(clockReset())
+  store.dispatch(clockPulse())
 }
 
 export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
@@ -260,50 +258,49 @@ export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
       copyPixels(previewContext)
     }
   }
-	
-  if (this.savePath) {
-		if(this.savePrewarm > 0){
-			this.savePrewarm--;
-		}else{
-			var num = this.saveIndex + ''
-			var numberLength = this.saveCount.toString().length;
-			while (num.length < numberLength) { num = '0' + num }
-			var path = this.savePath +'\\'+this.saveName+num+".png";
 
-			var data = domEl.toDataURL('image/png')
-			data = data.slice(data.indexOf(',') + 1)// .replace(/\s/g,'+');
-			var buffer = new Buffer(data, 'base64')
-			fs.writeFileSync(path, buffer, (e) => { if(e) console.log(e); this.saveIndex++ })
-			this.saveIndex++
-			if (this.saveIndex >= this.saveCount) { 
-				var convertName = this.saveName;
-				if(this.saveBatch>1)
-					convertName+='_'+this.saveBatchIndex;
-				
-				child_process.execSync('gif.py '+convertName+' -cwd '+this.saveName+' -v -g', {cwd:this.savePath})
-				
-				fs.writeFileSync(this.savePath +'\\'+convertName+"_cover.png", buffer, (e) => { if(e) console.log(e) })
-				
+  if (this.savePath) {
+    if (this.savePrewarm > 0) {
+      this.savePrewarm--
+    } else {
+      var num = this.saveIndex + ''
+      var numberLength = this.saveCount.toString().length
+      while (num.length < numberLength) { num = '0' + num }
+      var path = this.savePath + '\\' + this.saveName + num + '.png'
+
+      var data = domEl.toDataURL('image/png')
+      data = data.slice(data.indexOf(',') + 1)// .replace(/\s/g,'+');
+      var buffer = new Buffer(data, 'base64')
+      fs.writeFileSync(path, buffer, (e) => { if (e) console.log(e); this.saveIndex++ })
+      this.saveIndex++
+      if (this.saveIndex >= this.saveCount) {
+        var convertName = this.saveName
+        if (this.saveBatch > 1) { convertName += '_' + this.saveBatchIndex }
+
+        child_process.execSync('gif.py ' + convertName + ' -cwd ' + this.saveName + ' -v -g', { cwd:this.savePath })
+
+        fs.writeFileSync(this.savePath + '\\' + convertName + '_cover.png', buffer, (e) => { if (e) console.log(e) })
+
               // ------ Call All randomize fuinctions
-				var keys = Object.keys(store.getState().sketches)
-				for(var i = 0; i<keys.length; i++){
-					fireShot(keys[i], 'randomize');
-				}
-              
-				this.saveBatchIndex++;
-				if(this.saveBatchIndex<this.saveBatch){
-					const settings = store.getState().exportSettings;
-					this.saveName = settings.gifName
-					this.saveIndex = 0
-					this.savePrewarm = settings.gifWarmup;
-					store.dispatch(clockReset());
-				}else{
-					this.savePath = null;
-					store.dispatch(settingsUpdate({clockGenerated: true}));
-					setSize();		
-				}
-			}
-		}
-		store.dispatch(clockPulse());
+        var keys = Object.keys(store.getState().sketches)
+        for (var i = 0; i < keys.length; i++) {
+          fireShot(keys[i], 'randomize')
+        }
+
+        this.saveBatchIndex++
+        if (this.saveBatchIndex < this.saveBatch) {
+          const settings = store.getState().exportSettings
+          this.saveName = settings.gifName
+          this.saveIndex = 0
+          this.savePrewarm = settings.gifWarmup
+          store.dispatch(clockReset())
+        } else {
+          this.savePath = null
+          store.dispatch(settingsUpdate({ clockGenerated: true }))
+          setSize()
+        }
+      }
+    }
+    store.dispatch(clockPulse())
   }
 }

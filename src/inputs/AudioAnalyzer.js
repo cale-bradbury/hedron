@@ -16,10 +16,12 @@ class AudioInput {
     // how much we reduce the clean bins value each frame, low numbers create a smoother release after sound bumps it up
     // stores the highest value we have received for each bin
     this.maxLevelsData = []
+    this.minLevelsData = []
 
     this.fullLevelsData = []
     this.fullCleanLevelsData = []
     this.fullMaxLevelsData = []
+    this.fullMinLevelsData = []
     this.textureData = new Uint8Array(this.analyser.frequencyBinCount)
 
     this.levelsFalloff = 1
@@ -34,10 +36,12 @@ class AudioInput {
     // stoping divide by zeros
     this.maxLevelMinimum = 0.001
     for (let i = 0; i < this.numBands; i++) {
+      this.minLevelsData[i] = 0
       this.maxLevelsData[i] = this.maxLevelMinimum
       this.levelsData[i] = this.cleanLevelsData[i] = 0
     }
     for (let i = 0; i < this.analyser.frequencyBinCount; i++) {
+      this.fullMinLevelsData[i] = 0
       this.fullMaxLevelsData[i] = this.maxLevelMinimum
       this.fullLevelsData[i] = this.fullCleanLevelsData[i] = 0
     }
@@ -57,15 +61,23 @@ class AudioInput {
   }
 
   update () {
+    var normalized
     this.analyser.getByteFrequencyData(this.freqs)
-
     for (let i = 0; i < this.freqs.length; i++) {
       var freq = this.freqs[i] / 256
       freq = Math.max(freq, Math.max(0, this.fullCleanLevelsData[i] - this.levelsFalloff))
       this.fullCleanLevelsData[i] = freq
-      this.fullMaxLevelsData[i] = Math.max(this.fullMaxLevelsData[i] * this.maxLevelFalloffMultiplier, this.maxLevelMinimum)
+
+      this.fullMaxLevelsData[i] = Math.max(
+        this.fullMaxLevelsData[i] * this.maxLevelFalloffMultiplier,
+        this.maxLevelMinimum)
+      this.fullMinLevelsData[i] = Math.min(
+        1 - (1 - this.fullMinLevelsData[i]) * this.maxLevelFalloffMultiplier,
+        this.fullMaxLevelsData[i] - this.maxLevelMinimum)
       this.fullMaxLevelsData[i] = Math.max(this.fullMaxLevelsData[i], freq)
-      var normalized = freq / this.fullMaxLevelsData[i]
+      this.fullMinLevelsData[i] = Math.min(this.fullMinLevelsData[i], freq)
+      normalized = (freq - this.fullMinLevelsData[i]) /
+        (this.fullMaxLevelsData[i] - this.fullMinLevelsData[i])
       freq = this.lerp(freq, normalized, this.normalizeLevels)
       freq = Math.pow(freq, this.levelsPower)
       this.fullLevelsData[i] = this.lerp(freq, this.fullLevelsData[i], this.smoothing)
@@ -86,14 +98,19 @@ class AudioInput {
       var band = (sum / this.levelBins) / 256
       band = Math.max(band, Math.max(0, this.cleanLevelsData[i] - this.levelsFalloff))
       this.cleanLevelsData[i] = band
-      this.maxLevelsData[i] = Math.max(this.maxLevelsData[i] * this.maxLevelFalloffMultiplier, this.maxLevelMinimum)
+      this.maxLevelsData[i] = Math.max(
+        this.maxLevelsData[i] * this.maxLevelFalloffMultiplier,
+        this.maxLevelMinimum)
+      this.minLevelsData[i] = Math.min(
+        1 - (1 - this.minLevelsData[i]) * this.maxLevelFalloffMultiplier,
+        this.maxLevelsData[i] - this.maxLevelMinimum)
       this.maxLevelsData[i] = Math.max(this.maxLevelsData[i], band)
-      var normalized = band / this.maxLevelsData[i]
+      this.minLevelsData[i] = Math.min(this.minLevelsData[i], band)
+      normalized = (band - this.minLevelsData[i]) / (this.maxLevelsData[i] - this.minLevelsData[i])
       band = this.lerp(band, normalized, this.normalizeLevels)
       band = Math.pow(band, this.levelsPower)
       this.levelsData[i] = this.lerp(band, this.levelsData[i], this.smoothing)
     }
-
     return this.levelsData
   }
 }

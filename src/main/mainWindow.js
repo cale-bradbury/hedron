@@ -44,7 +44,7 @@ export const createMainWindow = () => {
         ipcMain.removeListener('reposition-output-window', outputSetBounds)
       })
 
-      if (!isDevelopment || 1==1) {
+      if (!isDevelopment || 1 === 1) {
         setTimeout(() => {
           mainWindow.setFullScreen(true)
           event.newGuest.setAutoHideMenuBar(true)
