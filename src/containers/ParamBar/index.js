@@ -11,7 +11,7 @@ const mapStateToProps = (state, ownProps) => {
   const type = node.type
   const linkId = node.activeInputLinkId
   const inputLink = getInputLink(state, linkId)
-  const hideBar = type === 'shot' && (!inputLink || inputLink && inputLink.input.type !== 'audio')
+  const hideBar = (type === 'shot' && (!inputLink || inputLink && inputLink.input.type !== 'audio')) || type === "string"
   const editingNode = getUiIsEditingNode(state)
 
   return {

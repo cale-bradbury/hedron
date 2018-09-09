@@ -1,6 +1,7 @@
 import { connect } from 'react-redux'
 import Param from '../../components/Param'
 import getNode from '../../selectors/getNode'
+import { nodeValueUpdate } from '../../store/nodes/actions'
 import { sketchNodeOpenedToggle } from '../../store/sketches/actions'
 import getIsSketchNodeOpened from '../../selectors/getIsSketchNodeOpened'
 import getActiveInputsText from '../../selectors/getActiveInputsText'
@@ -11,8 +12,7 @@ const mapStateToProps = (state, ownProps) => {
   const node = getNode(state, ownProps.nodeId)
   const inputLinkIds = node.inputLinkIds
   const param = state.nodes[ownProps.nodeId]
-  const type = ownProps.type || 'param'
-
+  const type = node.type || 'param'
   const inputLinkTitle = getActiveInputsText(state, ownProps.nodeId)
 
   return {
@@ -29,6 +29,9 @@ const mapDispatchToProps = (dispatch, ownProps) => {
   const type = ownProps.type || 'param'
 
   return {
+    onChange: (value) => {
+      dispatch(nodeValueUpdate(ownProps.nodeId, value))
+    },
     onOpenClick: () => {
       if (ownProps.notInSketch) {
         dispatch(uiNodeToggleOpen(ownProps.nodeId))
