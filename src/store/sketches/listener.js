@@ -36,7 +36,7 @@ const handleSketchCreate = (action, store) => {
       paramIds.push(uniqueId)
       store.dispatch(uNodeCreate(uniqueId, {
         title: param.title ? param.title : param.key,
-        type: 'param',
+        type: param.type || 'param',
         key: param.key,
         value: param.defaultValue,
         min: param.min ? param.min : 0,
@@ -145,7 +145,7 @@ const handleSketchReimport = (action, store) => {
       ]
       store.dispatch(uNodeCreate(uniqueId, {
         title: moduleParam.title ? moduleParam.title : moduleParam.key,
-        type: 'param',
+        type: moduleParam.type || 'param',
         key: moduleParam.key,
         value: moduleParam.defaultValue,
         min: moduleParam.min ? moduleParam.min : 0,
