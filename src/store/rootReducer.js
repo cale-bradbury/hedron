@@ -19,7 +19,6 @@ import macroReducer from './macros/reducer'
 import uiReducer from './ui/reducer'
 import linkableActionsReducer from './linkableActions/reducer'
 import settingsReducer from './settings/reducer'
-import exportSettingsReducer from './exportSettings/reducer'
 
 const ignoreList = [
   'CLOCK_PULSE', 'CLOCK_BEAT_INC',
@@ -28,7 +27,8 @@ const ignoreList = [
 ]
 
 const reducers = combineReducers({
-  nodes: ignoreActions(nodesReducer, difference(ignoreList, ['NODE_VALUE_UPDATE', 'NODE_RANGE_UPDATE', 'NODE_VALUES_BATCH_UPDATE'])),
+  nodes: ignoreActions(nodesReducer, difference(ignoreList,
+    ['NODE_VALUE_UPDATE', 'NODE_RANGE_UPDATE', 'NODE_VALUES_BATCH_UPDATE'])),
   availableModules: ignoreActions(availableModulesReducer, ignoreList),
   scenes: ignoreActions(scenesReducer, ignoreList),
   sketches: ignoreActions(sketchesReducer, ignoreList),
@@ -43,7 +43,6 @@ const reducers = combineReducers({
   ui: ignoreActions(uiReducer, ignoreList),
   router: ignoreActions(routerReducer, ignoreList),
   settings: ignoreActions(settingsReducer, ignoreList),
-  exportSettings: ignoreActions(exportSettingsReducer, ignoreList),
   form: ignoreActions(formReducer, ignoreList)
 })
 

@@ -12,7 +12,7 @@ import { projectError } from '../store/project/actions'
 import now from 'performance-now'
 import * as renderer from './renderer'
 import Scene from './Scene'
-import { nodeValueUpdate } from '../store/nodes/actions'
+import { nodeValuesBatchUpdate } from '../store/nodes/actions'
 
 export let scenes = {}
 
@@ -39,13 +39,13 @@ export const loadSketchModules = (url) => {
     console.error(error)
     store.dispatch(projectError(`Sketches failed to load: ${error.message}`, {
       popup: 'true',
-      type: 'badSketchFolder'
+      code: error.code
     }))
   }
 }
 
 export const addScene = (sceneId) => {
-  scenes[sceneId] = new Scene(renderer.renderer)
+  scenes[sceneId] = new Scene()
   renderer.setSize()
 }
 
@@ -60,7 +60,11 @@ export const addSketchToScene = (sceneId, sketchId, moduleId) => {
 
   const scene = scenes[sceneId]
   scene.renderer = renderer.renderer
-  const module = new allModules[moduleId].Module(scene, meta)
+
+  const state = store.getState()
+  const params = getSketchParams(state, sketchId)
+
+  const module = new allModules[moduleId].Module(scene, meta, params)
 
   sketches[sketchId] = module
   module.root && scene.scene.add(module.root)
@@ -77,15 +81,24 @@ export const removeSketchFromScene = (sceneId, sketchId) => {
 
 export const fireShot = (sketchId, method) => {
   const state = store.getState()
+
   if (sketches[sketchId][method]) {
-    var param = sketches[sketchId][method](getSketchParams(state, sketchId))
-    if (param) {
-      var keys = Object.keys(param)
-      for (var i = 0; i < keys.length; i++) {
-        var id = getSketchParamId(state, sketchId, keys[i])
+    const params = sketches[sketchId][method](getSketchParams(state, sketchId))
+    const vals = []
+    if (params) {
+      for (const key in params) {
+        const id = getSketchParamId(state, sketchId, key)
         if (id != null) {
-          store.dispatch(nodeValueUpdate(id, param[keys[i]], null))
+          vals.push(
+            {
+              id,
+              value: params[key]
+            }
+          )
         }
+      }
+      if (vals.length) {
+        store.dispatch(nodeValuesBatchUpdate(vals))
       }
     }
   }
@@ -128,6 +141,7 @@ export const run = (injectedStore, stats) => {
       stateScene.sketchIds.forEach(sketchId => {
         sketch = sketches[sketchId]
         const params = getSketchParams(state, sketchId)
+        allParams = getSketchParams(state, null, sceneId)
         sketch.update(params, tick, elapsedFrames, allParams)
       })
     }
@@ -138,7 +152,6 @@ export const run = (injectedStore, stats) => {
     if (isRunning) {
       state = store.getState()
       spf = 1000 / state.settings.throttledFPS
-      allParams = getSketchParams(state)
 
       newTime = now()
       delta = newTime - oldTimeModified
