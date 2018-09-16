@@ -74,7 +74,7 @@
     "three": "^0.92.0",
     "three-addons": "^1.1.0",
     "three-copyshader": "^0.0.1",
-    "three-effectcomposer": "0.0.1",
+    "three-effectcomposer": "^0.0.1",
     "tinycolor2": "^1.4.1",
     "try-require": "^1.2.1",
     "uid": "^0.0.2"
