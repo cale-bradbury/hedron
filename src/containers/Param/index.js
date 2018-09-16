@@ -1,17 +1,18 @@
 import { connect } from 'react-redux'
 import Param from '../../components/Param'
 import getNode from '../../selectors/getNode'
+import { nodeValueUpdate } from '../../store/nodes/actions'
 import { sketchNodeOpenedToggle } from '../../store/sketches/actions'
 import getIsSketchNodeOpened from '../../selectors/getIsSketchNodeOpened'
 import getActiveInputsText from '../../selectors/getActiveInputsText'
 import { nodeShotFired } from '../../store/nodes/actions'
+import { uiNodeToggleOpen } from '../../store/ui/actions'
 
 const mapStateToProps = (state, ownProps) => {
   const node = getNode(state, ownProps.nodeId)
   const inputLinkIds = node.inputLinkIds
   const param = state.nodes[ownProps.nodeId]
-  const type = ownProps.type || 'param'
-
+  const type = node.type || 'param'
   const inputLinkTitle = getActiveInputsText(state, ownProps.nodeId)
 
   return {
@@ -19,7 +20,7 @@ const mapStateToProps = (state, ownProps) => {
     numInputs: inputLinkIds.length,
     numMacros: node.connectedMacroIds.length,
     title: param.title,
-    isOpen: getIsSketchNodeOpened(state, ownProps.sketchId, ownProps.nodeId, type),
+    isOpen: getIsSketchNodeOpened(state, ownProps.sketchId, ownProps.nodeId, type, ownProps.notInSketch),
     inputLinkTitle
   }
 }
@@ -28,8 +29,15 @@ const mapDispatchToProps = (dispatch, ownProps) => {
   const type = ownProps.type || 'param'
 
   return {
+    onChange: (value) => {
+      dispatch(nodeValueUpdate(ownProps.nodeId, value))
+    },
     onOpenClick: () => {
-      dispatch(sketchNodeOpenedToggle(ownProps.sketchId, ownProps.nodeId, type))
+      if (ownProps.notInSketch) {
+        dispatch(uiNodeToggleOpen(ownProps.nodeId))
+      } else {
+        dispatch(sketchNodeOpenedToggle(ownProps.sketchId, ownProps.nodeId, type))
+      }
     },
     onParamBarClick: type === 'shot'
     ? () => {

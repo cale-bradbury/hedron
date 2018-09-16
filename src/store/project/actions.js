@@ -85,12 +85,12 @@ export function projectErrorAdd (message) {
   }
 }
 
-export function projectErrorPopupOpen (message, type) {
+export function projectErrorPopupOpen (message, code) {
   return {
     type: 'PROJECT_ERROR_POPUP_OPEN',
     payload: {
       message,
-      type
+      code
     }
   }
 }

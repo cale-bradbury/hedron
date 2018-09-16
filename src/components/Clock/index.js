@@ -2,6 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import Button from '../Button'
+import InputLinkMidiControl from '../../containers/InputLinkMidiControl'
 
 const Wrapper = styled.div`
   height: 48px;
@@ -33,7 +34,13 @@ const Bottom = styled.div`
   margin-bottom: 0.25rem;
 `
 
-const Clock = ({ beat, bar, phrase, bpm, onResetClick, onTapTempoClick }) => (
+const Item = ({ title, onClick, linkableActionId, color }) =>
+  <Col>
+    <Button onClick={onClick} color={color}>{title}</Button>
+    <InputLinkMidiControl linkableActionId={linkableActionId} />
+  </Col>
+
+const Clock = ({ beat, bar, phrase, bpm, onResetClick, onTapTempoClick, onTapTempoId }) => (
   <Wrapper>
     <Col>
       <Top>{beat} - {bar} - {phrase}</Top>
@@ -45,14 +52,23 @@ const Clock = ({ beat, bar, phrase, bpm, onResetClick, onTapTempoClick }) => (
     </Col>
   </Wrapper>
 )
-
+/*
+			 <Item
+            title='Tap Tempo'
+            onClick={onTapTempoClick}
+            linkableActionId={onTapTempoId}
+          />
+					*/
+// /<TapButton onClick={onTapTempoClick}>Tap<br />Tempo</TapButton>
+// <InputLinkMidiControl linkableActionId='onTapTempo' />
 Clock.propTypes = {
   beat: PropTypes.number.isRequired,
   bar: PropTypes.number.isRequired,
   phrase: PropTypes.number.isRequired,
   bpm: PropTypes.number,
   onResetClick: PropTypes.func.isRequired,
-  onTapTempoClick: PropTypes.func.isRequired
+  onTapTempoClick: PropTypes.func.isRequired,
+  onTapTempoId: PropTypes.string.isRequired
 }
 
 export default Clock

@@ -5,6 +5,7 @@ import AddSketch from '../../containers/AddSketch'
 import SketchesNav from '../../containers/SketchesNav'
 import Macros from '../../containers/Macros'
 import Settings from '../../containers/Settings'
+import ExportSettings from '../../containers/ExportSettings'
 import Overview from '../Overview'
 import { Route } from 'react-router'
 import styled from 'styled-components'
@@ -55,6 +56,7 @@ const App = ({ stats, leftWidth, onLeftDrag }) => (
         <Route path='/sketches/add' component={AddSketch} />
         <Route path='/macros' component={Macros} />
         <Route path='/settings' component={Settings} />
+        <Route path='/exportSettings' component={ExportSettings} />
       </MainViewOuter>
     </Right>
     <Bar>

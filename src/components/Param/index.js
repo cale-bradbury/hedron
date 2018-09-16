@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { Component} from 'react'
 import PropTypes from 'prop-types'
 import ParamBar from '../../containers/ParamBar'
 import Node from '../Node'
@@ -87,7 +87,7 @@ const Title = styled.div`
   font-size: 0.6rem;
   z-index: 1;
   position: absolute;
-  top: 0.1rem;
+  top: 0.25rem;
   left: 0.2rem;
   width: 1000px;
   pointer-events: none;
@@ -134,6 +134,7 @@ class Param extends React.Component {
     this.calculateHeights = this.calculateHeights.bind(this)
 
     uiEventEmitter.on('repaint', this.calculateHeights)
+    uiEventEmitter.on('recalc-param-heights', this.calculateHeights)
   }
 
   componentDidMount () {
@@ -161,6 +162,12 @@ class Param extends React.Component {
       })
     }
   }
+  
+  onKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      this.props.onChange(e.target.value);
+    }
+  }
 
   render () {
     const { title, nodeId, isOpen, onOpenClick, onParamBarClick,
@@ -172,17 +179,36 @@ class Param extends React.Component {
           <Inner isOpen={isOpen} isActive={isActive}>
             <Top>
               <Row>
-                <BarCol>
-                  <Title>{title}</Title>
-                  <ParamBar nodeId={nodeId} onMouseDown={onParamBarClick} />
-                </BarCol>
-                <Info onClick={onOpenClick}>
-                  {inputLinkTitle && <span><Icon glyph={inputIcon} />{inputLinkTitle}</span>}
-                  <IconInfo>
-                    {numInputs !== undefined && (<span><Icon glyph={inputIcon} />{numInputs}</span>)}
-                    {numMacros !== undefined && (<span><Icon glyph={macroIcon} />{numMacros}</span>)}
-                  </IconInfo>
-                </Info>
+              
+                {(type === "string") ? (
+                  <React.Fragment>
+                    <BarCol>
+                      <input
+                        type="text"
+                        onKeyPress={this.onKeyPress}
+                      />
+                    </BarCol>
+                    <Info>{title}</Info>
+                  </React.Fragment>
+                ):(
+                  <React.Fragment>
+                    <BarCol>
+                      <Title>{title}</Title>
+                      <ParamBar
+                        nodeId={nodeId}
+                        onMouseDown={onParamBarClick}
+                        type={type}
+                      />
+                    </BarCol>
+                    <Info onClick={onOpenClick}>
+                      {inputLinkTitle && <span><Icon glyph={inputIcon} />{inputLinkTitle}</span>}
+                      <IconInfo>
+                        {numInputs !== undefined && (<span><Icon glyph={inputIcon} />{numInputs}</span>)}
+                        {numMacros !== undefined && (<span><Icon glyph={macroIcon} />{numMacros}</span>)}
+                      </IconInfo>
+                    </Info>
+                  </React.Fragment>
+                )}
               </Row>
             </Top>
           </Inner>
@@ -206,6 +232,7 @@ Param.propTypes = {
   nodeId: PropTypes.string.isRequired,
   isOpen: PropTypes.bool,
   isActive: PropTypes.bool,
+  OnChange: PropTypes.func,
   onOpenClick: PropTypes.func.isRequired,
   onParamBarClick: PropTypes.func,
   children: PropTypes.node,

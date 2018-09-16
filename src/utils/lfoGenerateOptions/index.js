@@ -16,6 +16,10 @@ export default () => {
           label: 'Sine'
         },
         {
+          value: 'cosine',
+          label: 'Cosine'
+        },
+        {
           value: 'square',
           label: 'Square'
         },
@@ -30,6 +34,10 @@ export default () => {
         {
           value: 'triangle',
           label: 'Triangle'
+        },
+        {
+          value: 'noise',
+          label: 'Noise'
         }
       ]
     },
@@ -87,6 +95,14 @@ export default () => {
           label: '1/32'
         }
       ]
+    },
+    {
+      title: 'Phase',
+      id: uid(),
+      key: 'phase',
+      value: 0,
+      inputLinkIds: [],
+      subNode: true
     }
   ]
 }
