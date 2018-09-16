@@ -1,6 +1,6 @@
 # THIS IS AN EXPERIMENTAL FORK
 
-Feel free to use, this currently has post effects and other wip features that are yet to be integrated into the [main branch](https://github.com/nudibranchrecords/hedron) I activly perform with this branch and can confirm it's stability on windows, but features are subject to change
+Feel free to use, this currently has post effects and other wip features that are yet to be integrated into the [main branch](https://github.com/nudibranchrecords/hedron). I actively perform with this branch and can confirm it's stability on windows, but features are subject to change.
 
 # Hedron
 
