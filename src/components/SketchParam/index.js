@@ -13,7 +13,8 @@ const Top = styled.div`
   border-bottom: ${theme.lineColor1} 1px dashed;
 `
 
-const SketchParam = ({ nodeId, sketchId, advancedIsOpen, onAdvancedClick }) => (
+const SketchParam = ({ nodeId, sketchId, advancedIsOpen, onAdvancedClick, isHidden }) => (
+  (!isHidden &&
   <Param nodeId={nodeId} sketchId={sketchId}>
     <Top>
       <InputLinkUI nodeId={nodeId} />
@@ -22,13 +23,15 @@ const SketchParam = ({ nodeId, sketchId, advancedIsOpen, onAdvancedClick }) => (
       <ParamRange nodeId={nodeId} />
     </Revealer>
   </Param>
+  )
 )
 
 SketchParam.propTypes = {
   nodeId: PropTypes.string.isRequired,
   sketchId: PropTypes.string.isRequired,
   advancedIsOpen: PropTypes.bool,
-  onAdvancedClick: PropTypes.func.isRequired
+  onAdvancedClick: PropTypes.func.isRequired,
+  isHidden: PropTypes.bool
 }
 
 export default SketchParam

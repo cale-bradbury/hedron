@@ -41,6 +41,7 @@ const handleSketchCreate = (action, store) => {
         value: param.defaultValue,
         min: param.min ? param.min : 0,
         max: param.max ? param.max : 1,
+        hidden: param.hidden === undefined ? false : param.hidden,
         id: uniqueId,
         inputLinkIds
       }))
@@ -150,6 +151,7 @@ const handleSketchReimport = (action, store) => {
         value: moduleParam.defaultValue,
         min: moduleParam.min ? moduleParam.min : 0,
         max: moduleParam.max ? moduleParam.max : 1,
+        hidden: moduleParam.hidden === undefined ? false : moduleParam.hidden,
         id: uniqueId,
         inputLinkIds: []
       }))
