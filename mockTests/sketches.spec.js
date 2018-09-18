@@ -167,8 +167,7 @@ test('(mock) Sketches - Add/Delete Sketch', (t) => {
       connectedMacroIds: [],
       type: 'param',
       key: 'speed',
-      min: 0,
-      max: 1
+      hidden: false
     }
   }, 'After creating sketch, node item is created for param')
 
@@ -215,8 +214,7 @@ test('(mock) Sketches - Add/Delete Sketch', (t) => {
       connectedMacroIds: [],
       type: 'param',
       key: 'speed',
-      min: 0,
-      max: 1
+      hidden: false
     },
     id_4: {
       id: 'id_4',
@@ -227,8 +225,7 @@ test('(mock) Sketches - Add/Delete Sketch', (t) => {
       connectedMacroIds: [],
       type: 'param',
       key: 'scale',
-      min: 0,
-      max: 1
+      hidden: false
     },
     id_5: {
       id: 'id_5',
@@ -239,8 +236,7 @@ test('(mock) Sketches - Add/Delete Sketch', (t) => {
       connectedMacroIds: [],
       type: 'param',
       key: 'color',
-      min: 0,
-      max: 1
+      hidden: false
     },
     id_6: {
       id: 'id_6',
@@ -291,8 +287,7 @@ test('(mock) Sketches - Add/Delete Sketch', (t) => {
       connectedMacroIds: [],
       type: 'param',
       key: 'scale',
-      min: 0,
-      max: 1
+      hidden: false
     },
     id_5: {
       id: 'id_5',
@@ -303,8 +298,7 @@ test('(mock) Sketches - Add/Delete Sketch', (t) => {
       connectedMacroIds: [],
       type: 'param',
       key: 'color',
-      min: 0,
-      max: 1
+      hidden: false
     },
     id_6: {
       id: 'id_6',
@@ -391,6 +385,20 @@ test('(mock) Sketches - Reimport Sketch (Unedited sketch)', (t) => {
   uniqueId = 2
 
   const defaultState = {
+    availableModules: {
+      foo: {
+        defaultTitle: 'Foo',
+        params: [
+          {
+            key: 'speed',
+            title: 'Speed',
+            defaultValue: 0.5,
+            hidden: false
+          }
+        ],
+        shots: []
+      }
+    },
     nodes: {
       id_2: {
         id: 'id_2',
@@ -401,21 +409,7 @@ test('(mock) Sketches - Reimport Sketch (Unedited sketch)', (t) => {
         connectedMacroIds: [],
         type: 'param',
         key: 'speed',
-        min: 0,
-        max: 1
-      }
-    },
-    availableModules: {
-      foo: {
-        defaultTitle: 'Foo',
-        params: [
-          {
-            key: 'speed',
-            title: 'Speed',
-            defaultValue: 0.5
-          }
-        ],
-        shots: []
+        hidden: false
       }
     },
     sketches: {
@@ -519,8 +513,7 @@ test('(mock) Sketches - Reimport Sketch (simple)', (t) => {
         connectedMacroIds: [],
         type: 'param',
         key: 'speed',
-        min: 0,
-        max: 1
+        hidden: false
       },
       id_3: {
         id: 'id_3',
@@ -531,8 +524,7 @@ test('(mock) Sketches - Reimport Sketch (simple)', (t) => {
         connectedMacroIds: [],
         type: 'param',
         key: 'scale',
-        min: 0,
-        max: 1
+        hidden: false
       }
     },
    'After reimporting, new node exists'
@@ -635,8 +627,7 @@ test('(mock) Sketches - Reimport Sketch (params and shots)', (t) => {
         connectedMacroIds: [],
         type: 'param',
         key: 'speed',
-        min: 0,
-        max: 1
+        hidden: false
       },
       id_3: {
         id: 'id_3',
@@ -658,8 +649,7 @@ test('(mock) Sketches - Reimport Sketch (params and shots)', (t) => {
         connectedMacroIds: [],
         type: 'param',
         key: 'scale',
-        min: 0,
-        max: 1
+        hidden: false
       },
       id_5: {
         id: 'id_5',
@@ -764,8 +754,7 @@ test('(mock) Sketches - Reimport Sketch (with shot and param title changes)', (t
         connectedMacroIds: [],
         type: 'param',
         key: 'speed',
-        min: 0,
-        max: 1
+        hidden: false
       },
       id_3: {
         id: 'id_3',
@@ -787,8 +776,7 @@ test('(mock) Sketches - Reimport Sketch (with shot and param title changes)', (t
         connectedMacroIds: [],
         type: 'param',
         key: 'scale',
-        min: 0,
-        max: 1
+        hidden: false
       }
     },
    'After reimporting, new node exists, old nodes titles have changed'
@@ -881,8 +869,7 @@ test('(mock) Sketches - Reimport Sketch (Different order)', (t) => {
         connectedMacroIds: [],
         type: 'param',
         key: 'speed',
-        min: 0,
-        max: 1
+        hidden: false
       },
       id_3: {
         id: 'id_3',
@@ -893,8 +880,7 @@ test('(mock) Sketches - Reimport Sketch (Different order)', (t) => {
         connectedMacroIds: [],
         type: 'param',
         key: 'scale',
-        min: 0,
-        max: 1
+        hidden: false
       },
       id_4: {
         id: 'id_4',
@@ -904,9 +890,7 @@ test('(mock) Sketches - Reimport Sketch (Different order)', (t) => {
         shotCount: 0,
         connectedMacroIds: [],
         type: 'param',
-        key: 'bar',
-        min: 0,
-        max: 1
+        key: 'bar'
       }
     },
    'After reimporting, new node exists'
