@@ -5,7 +5,7 @@ const defaultState = {
   gifWarmup: 0,
   gifGenerate: 1,
   gifName: 'gifName',
-  gifPath: 'C:\\Gif'
+  gifPath: 'C:\\Gif',
 }
 
 const exportSettingsReducer = (state = defaultState, action) => {
@@ -15,7 +15,7 @@ const exportSettingsReducer = (state = defaultState, action) => {
     case 'EXPORT_SETTINGS_UPDATE': {
       return {
         ...state,
-        ...p.items
+        ...p.items,
       }
     }
     default:

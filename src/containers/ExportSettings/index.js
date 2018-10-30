@@ -7,7 +7,7 @@ import { beginSaveSequence } from '../../engine/renderer'
 
 const mapStateToProps = (state, ownProps) => ({
   initialValues: state.exportSettings,
-  enableReinitialize: true
+  enableReinitialize: true,
 })
 
 const mapDispatchToProps = (dispatch, ownProps) => ({
@@ -18,11 +18,11 @@ const mapDispatchToProps = (dispatch, ownProps) => ({
   onSaveClick: () => {
     console.log(ownProps)
     beginSaveSequence(ownProps.gifPath + '\\' + ownProps.gifName)
-  }
+  },
 })
 
 const ExportSettings = reduxForm({
-  form: 'exportSettings'
+  form: 'exportSettings',
 })(ExportSettingsComponent)
 
 export default connect(

@@ -61,10 +61,10 @@ class AudioInput {
   }
 
   update () {
-    var normalized
+    let normalized
     this.analyser.getByteFrequencyData(this.freqs)
     for (let i = 0; i < this.freqs.length; i++) {
-      var freq = this.freqs[i] / 256
+      let freq = this.freqs[i] / 256
       freq = Math.max(freq, Math.max(0, this.fullCleanLevelsData[i] - this.levelsFalloff))
       this.fullCleanLevelsData[i] = freq
 
@@ -99,7 +99,7 @@ class AudioInput {
       this.cleanLevelsData[ i ] = band
       this.maxLevelsData[ i ] = Math.max(this.maxLevelsData[ i ] * this.maxLevelFalloffMultiplier, this.maxLevelMinimum)
       this.maxLevelsData[ i ] = Math.max(this.maxLevelsData[ i ], band)
-      this.minLevelsData[ i ] = Math.min(1 - (1 - this.minLevelsData[ i ]) * this.maxLevelFalloffMultiplier,this.maxLevelsData[ i ] - this.maxLevelMinimum)
+      this.minLevelsData[ i ] = Math.min(1 - (1 - this.minLevelsData[ i ]) * this.maxLevelFalloffMultiplier, this.maxLevelsData[ i ] - this.maxLevelMinimum)
       this.minLevelsData[ i ] = Math.min(this.minLevelsData[ i ], band)
       const normalized = (band - this.minLevelsData[ i ]) / (this.maxLevelsData[ i ] - this.minLevelsData[ i ])
       band = this.lerp(band, normalized, this.normalizeLevels)

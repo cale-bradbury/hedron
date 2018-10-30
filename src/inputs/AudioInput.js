@@ -8,7 +8,7 @@ export default (store) => {
 
     let bands, i
     window.setInterval(() => {
-      var state = store.getState()
+      let state = store.getState()
       input.normalizeLevels = state.nodes['audioNormalizeLevels'].value
       input.levelsFalloff = Math.pow(state.nodes['audioLevelsFalloff'].value, 2)
       input.maxLevelFalloffMultiplier = 1 - Math.pow(state.nodes['audioNormalizeRangeFalloff'].value, 3) * 0.01
@@ -22,7 +22,7 @@ export default (store) => {
   }
 
   navigator.getUserMedia({
-    audio: true
+    audio: true,
   }, gotStream, err => {
     console.error('The following error occured: ' + err.message)
   })

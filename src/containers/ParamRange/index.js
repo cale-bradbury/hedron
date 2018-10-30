@@ -9,9 +9,9 @@ const mapStateToProps = (state, ownProps) => {
   return {
     initialValues: {
       min: node.min,
-      max: node.max
+      max: node.max,
     },
-    form: ownProps.nodeId + 'range'
+    form: ownProps.nodeId + 'range',
   }
 }
 
@@ -19,12 +19,12 @@ const mapDispatchToProps = (dispatch, ownProps) => {
   return {
     onSubmit: (obj) => {
       dispatch(nodeUpdate(ownProps.nodeId, obj))
-    }
+    },
   }
 }
 
 const ParamRange = reduxForm({
-  enableReinitialize: true
+  enableReinitialize: true,
 })(RangeComponent)
 
 export default connect(

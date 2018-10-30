@@ -23,7 +23,7 @@ const Range = ({ min, max }) => (
 
 Range.propTypes = {
   min: PropTypes.number.isRequired,
-  max: PropTypes.number.isRequired
+  max: PropTypes.number.isRequired,
 }
 
 export default Range

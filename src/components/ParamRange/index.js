@@ -61,7 +61,7 @@ class ParamRange extends React.Component {
 }
 
 ParamRange.propTypes = {
-  handleSubmit: PropTypes.func
+  handleSubmit: PropTypes.func,
 }
 
 export default ParamRange

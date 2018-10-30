@@ -11,14 +11,14 @@ const mapStateToProps = (state, ownProps) => {
   const type = node.type
   const linkId = node.activeInputLinkId
   const inputLink = getInputLink(state, linkId)
-  const hideBar = (type === 'shot' && (!inputLink || inputLink && inputLink.input.type !== 'audio')) || type === "string"
+  const hideBar = (type === 'shot' && (!inputLink || inputLink && inputLink.input.type !== 'audio')) || type === 'string'
   const editingNode = getIsEditing(state)
 
   return {
     type,
     hideBar,
     markerIsVisible: type === 'shot' && !hideBar && inputLink.armed,
-    formIsVisible: getIsEditing(state, ownProps.nodeId, 'paramValue')
+    formIsVisible: getIsEditing(state, ownProps.nodeId, 'paramValue'),
   }
 }
 
@@ -32,7 +32,7 @@ const mapDispatchToProps = (dispatch, ownProps) => {
     onDoubleClick: () => {
       type === 'param' &&
       dispatch(uiEditingOpen('paramValue', ownProps.nodeId))
-    }
+    },
   }
 }
 

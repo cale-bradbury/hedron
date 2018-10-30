@@ -3,8 +3,8 @@ export function uNodeCreate (id, node) {
     type: 'U_NODE_CREATE',
     payload: {
       id,
-      node
-    }
+      node,
+    },
   }
 }
 
@@ -13,8 +13,8 @@ export function rNodeCreate (id, node) {
     type: 'R_NODE_CREATE',
     payload: {
       id,
-      node
-    }
+      node,
+    },
   }
 }
 
@@ -22,8 +22,8 @@ export function uNodeDelete (nodeId) {
   return {
     type: 'U_NODE_DELETE',
     payload: {
-      nodeId
-    }
+      nodeId,
+    },
   }
 }
 
@@ -31,8 +31,8 @@ export function rNodeDelete (id) {
   return {
     type: 'R_NODE_DELETE',
     payload: {
-      id
-    }
+      id,
+    },
   }
 }
 
@@ -41,8 +41,8 @@ export function uNodeInputLinkAdd (id, linkId) {
     type: 'U_NODE_INPUT_LINK_ADD',
     payload: {
       id,
-      linkId
-    }
+      linkId,
+    },
   }
 }
 
@@ -51,8 +51,8 @@ export function rNodeInputLinkAdd (id, linkId) {
     type: 'R_NODE_INPUT_LINK_ADD',
     payload: {
       id,
-      linkId
-    }
+      linkId,
+    },
   }
 }
 
@@ -61,8 +61,8 @@ export function nodeInputLinkRemove (id, linkId) {
     type: 'NODE_INPUT_LINK_REMOVE',
     payload: {
       id,
-      linkId
-    }
+      linkId,
+    },
   }
 }
 
@@ -72,8 +72,8 @@ export function nodeValueUpdate (id, value, meta) {
     payload: {
       id,
       value,
-      meta
-    }
+      meta,
+    },
   }
 }
 
@@ -83,8 +83,8 @@ export function nodeRangeUpdate (id, value, meta) {
     payload: {
       id,
       value,
-      meta
-    }
+      meta,
+    },
   }
 }
 
@@ -93,8 +93,8 @@ export function nodeValuesBatchUpdate (values, meta) {
     type: 'NODE_VALUES_BATCH_UPDATE',
     payload: {
       values,
-      meta
-    }
+      meta,
+    },
   }
 }
 
@@ -102,8 +102,8 @@ export function nodesReplaceAll (nodes) {
   return {
     type: 'NODES_REPLACE_ALL',
     payload: {
-      nodes
-    }
+      nodes,
+    },
   }
 }
 
@@ -113,8 +113,8 @@ export function uNodeInputUpdate (nodeId, inputId, inputType) {
     payload: {
       nodeId,
       inputId,
-      inputType
-    }
+      inputType,
+    },
   }
 }
 
@@ -123,22 +123,22 @@ export function rNodeInputUpdate (nodeId, input) {
     type: 'R_NODE_INPUT_UPDATE',
     payload: {
       nodeId,
-      input
-    }
+      input,
+    },
   }
 }
 
 export function rNodeConnectedMacroAdd (id, macroId) {
   return {
     type: 'R_NODE_CONNECTED_MACRO_ADD',
-    payload: { id, macroId }
+    payload: { id, macroId },
   }
 }
 
 export function rNodeConnectedMacroRemove (id, macroId) {
   return {
     type: 'R_NODE_CONNECTED_MACRO_REMOVE',
-    payload: { id, macroId }
+    payload: { id, macroId },
   }
 }
 
@@ -146,8 +146,8 @@ export function nodeOpenToggle (id) {
   return {
     type: 'NODE_OPEN_TOGGLE',
     payload: {
-      id
-    }
+      id,
+    },
   }
 }
 
@@ -155,8 +155,8 @@ export function nodeTabOpen (nodeId, linkId) {
   return {
     type: 'NODE_TAB_OPEN',
     payload: {
-      nodeId, linkId
-    }
+      nodeId, linkId,
+    },
   }
 }
 
@@ -164,8 +164,8 @@ export function nodeActiveInputLinkToggle (nodeId, linkId) {
   return {
     type: 'NODE_ACTIVE_INPUT_LINK_TOGGLE',
     payload: {
-      nodeId, linkId
-    }
+      nodeId, linkId,
+    },
   }
 }
 
@@ -173,8 +173,8 @@ export function nodeShotFired (nodeId, sketchId, method) {
   return {
     type: 'NODE_SHOT_FIRED',
     payload: {
-      nodeId, sketchId, method
-    }
+      nodeId, sketchId, method,
+    },
   }
 }
 
@@ -183,7 +183,7 @@ export function nodeUpdate (nodeId, obj) {
     type: 'NODE_UPDATE',
     payload: {
       nodeId,
-      obj
-    }
+      obj,
+    },
   }
 }

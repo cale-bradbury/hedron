@@ -16,13 +16,13 @@ const mapStateToProps = (state, ownProps) => {
     bar: (Math.floor(state.clock.beat / 4) % 4) + 1,
     phrase: (Math.floor(state.clock.beat / 16) % 4) + 1,
     bpm: getClockBpm(state),
-    onTapTempoId: 'onTapTempoNode'
+    onTapTempoId: 'onTapTempoNode',
   }
 }
 
 const mapDispatchToProps = (dispatch, ownProps) => ({
   onResetClick: () => { dispatch(clockReset()) },
-  onTapTempoClick: () => { dispatch(tapTempo()) }
+  onTapTempoClick: () => { dispatch(tapTempo()) },
 })
 
 export default connect(
@@ -32,6 +32,6 @@ export default connect(
   {
     // We are mutating state of clock
     // so this means component always updates
-    areStatesEqual: () => false
+    areStatesEqual: () => false,
   }
 )(Clock)

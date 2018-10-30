@@ -8,7 +8,7 @@ import getNode from '../../selectors/getNode'
 
 const mapStateToProps = (state, ownProps) => ({
   advancedIsOpen: getIsAuxOpen(state, ownProps.nodeId),
-  isHidden: getNode(state, ownProps.nodeId).hidden
+  isHidden: getNode(state, ownProps.nodeId).hidden,
 })
 
 const mapDispatchToProps = (dispatch, ownProps) => ({
@@ -17,7 +17,7 @@ const mapDispatchToProps = (dispatch, ownProps) => ({
     setTimeout(() => {
       uiEventEmitter.emit('recalc-param-heights')
     })
-  }
+  },
 })
 
 export default connect(

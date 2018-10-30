@@ -1,4 +1,4 @@
-import React, { Component} from 'react'
+import React, { Component } from 'react'
 import PropTypes from 'prop-types'
 import ParamBar from '../../containers/ParamBar'
 import Node from '../Node'
@@ -129,7 +129,7 @@ class Param extends React.Component {
   constructor () {
     super()
     this.state = {
-      bottomHeight: 0
+      bottomHeight: 0,
     }
     this.calculateHeights = this.calculateHeights.bind(this)
 
@@ -158,14 +158,14 @@ class Param extends React.Component {
   calculateHeights () {
     if (this.bottomEl) {
       this.setState({
-        bottomHeight: this.bottomEl.offsetHeight
+        bottomHeight: this.bottomEl.offsetHeight,
       })
     }
   }
-  
+
   onKeyPress = (e) => {
     if (e.key === 'Enter') {
-      this.props.onChange(e.target.value);
+      this.props.onChange(e.target.value)
     }
   }
 
@@ -179,18 +179,18 @@ class Param extends React.Component {
           <Inner isOpen={isOpen} isActive={isActive}>
             <Top>
               <Row>
-              
-                {(type === "string") ? (
+
+                {(type === 'string') ? (
                   <React.Fragment>
                     <BarCol>
                       <input
-                        type="text"
+                        type='text'
                         onKeyPress={this.onKeyPress}
                       />
                     </BarCol>
                     <Info>{title}</Info>
                   </React.Fragment>
-                ):(
+                ) : (
                   <React.Fragment>
                     <BarCol>
                       <Title>{title}</Title>
@@ -239,7 +239,7 @@ Param.propTypes = {
   numInputs: PropTypes.number,
   numMacros: PropTypes.number,
   inputLinkTitle: PropTypes.string,
-  type: PropTypes.string
+  type: PropTypes.string,
 }
 
 export default Param
