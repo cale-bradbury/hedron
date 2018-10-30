@@ -77,17 +77,6 @@ export function nodeValueUpdate (id, value, meta) {
   }
 }
 
-export function nodeRangeUpdate (id, value, meta) {
-  return {
-    type: 'NODE_RANGE_UPDATE',
-    payload: {
-      id,
-      value,
-      meta,
-    },
-  }
-}
-
 export function nodeValuesBatchUpdate (values, meta) {
   return {
     type: 'NODE_VALUES_BATCH_UPDATE',
@@ -184,6 +173,15 @@ export function nodeUpdate (nodeId, obj) {
     payload: {
       nodeId,
       obj,
+    },
+  }
+}
+
+export function nodeResetRange (nodeId) {
+  return {
+    type: 'NODE_RESET_RANGE',
+    payload: {
+      nodeId,
     },
   }
 }

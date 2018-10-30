@@ -45,22 +45,20 @@ const Clock = ({ beat, bar, phrase, bpm, onResetClick, onTapTempoClick, onTapTem
     <Col>
       <Top>{beat} - {bar} - {phrase}</Top>
       <Bottom>{bpm}</Bottom>
-      <Button onClick={onResetClick}>Reset</Button>
+      <Button onMouseDown={(e)=>{
+                            e.stopPropagation(); 
+                            onResetClick()
+                          }}>Reset</Button>
     </Col>
     <Col>
-      <TapButton onClick={onTapTempoClick}>Tap<br />Tempo</TapButton>
+      <TapButton onMouseDown={(e)=>{
+                              e.stopPropagation(); 
+                              onTapTempoClick();
+                             }}>Tap<br />Tempo</TapButton>
     </Col>
   </Wrapper>
 )
-/*
-			 <Item
-            title='Tap Tempo'
-            onClick={onTapTempoClick}
-            linkableActionId={onTapTempoId}
-          />
-					*/
-// /<TapButton onClick={onTapTempoClick}>Tap<br />Tempo</TapButton>
-// <InputLinkMidiControl linkableActionId='onTapTempo' />
+
 Clock.propTypes = {
   beat: PropTypes.number.isRequired,
   bar: PropTypes.number.isRequired,
@@ -68,7 +66,6 @@ Clock.propTypes = {
   bpm: PropTypes.number,
   onResetClick: PropTypes.func.isRequired,
   onTapTempoClick: PropTypes.func.isRequired,
-  onTapTempoId: PropTypes.string.isRequired,
 }
 
 export default Clock
