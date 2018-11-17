@@ -96,11 +96,10 @@ export const createMainWindow = () => {
       mainWindow.focus()
     })
   })
-
-  mainWindow.webContents.on('will-navigate', (event, url) => {
+  /*mainWindow.webContents.on('will-navigate', (event, url) => {
     event.preventDefault()
     shell.openExternal(url)
-  })
+  })*/
 
   setTimeout(() => {
     mainWindow.webContents.send('args', argv)
