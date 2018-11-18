@@ -4,8 +4,8 @@ import * as engine from './'
 import QuadScene from './QuadScene'
 import { clockPulse, clockReset } from '../store/clock/actions'
 import { settingsUpdate } from '../store/settings/actions'
-var fs = require('fs')
-var child_process = require('child_process')
+let fs = require('fs')
+let child_process = require('child_process')
 import { remote } from 'electron'
 import { fireShot } from './'
 
@@ -19,7 +19,7 @@ export const setRenderer = () => {
   const settings = store.getState().settings
 
   renderer = new THREE.WebGLRenderer({
-    antialias: settings.antialias
+    antialias: settings.antialias,
   })
 
   domEl = renderer.domElement
@@ -29,7 +29,7 @@ export const setRenderer = () => {
     minFilter: THREE.LinearFilter,
     magFilter: THREE.LinearFilter,
     format: THREE.RGBFormat,
-    stencilBuffer: false
+    stencilBuffer: false,
   }
   rttA = new THREE.WebGLRenderTarget(null, null, renderTargetParameters)
   rttB = new THREE.WebGLRenderTarget(null, null, renderTargetParameters)
@@ -187,7 +187,7 @@ const copyPixels = (context) => {
 
 export const saveSequence = () => {
   remote.dialog.showOpenDialog({
-    properties: ['openDirectory']
+    properties: ['openDirectory'],
   },
 	path => {
   if (path) {
@@ -263,18 +263,18 @@ export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
     if (this.savePrewarm > 0) {
       this.savePrewarm--
     } else {
-      var num = this.saveIndex + ''
-      var numberLength = this.saveCount.toString().length
+      let num = this.saveIndex + ''
+      let numberLength = this.saveCount.toString().length
       while (num.length < numberLength) { num = '0' + num }
-      var path = this.savePath + '\\' + this.saveName + num + '.png'
+      let path = this.savePath + '\\' + this.saveName + num + '.png'
 
-      var data = domEl.toDataURL('image/png')
+      let data = domEl.toDataURL('image/png')
       data = data.slice(data.indexOf(',') + 1)// .replace(/\s/g,'+');
-      var buffer = new Buffer(data, 'base64')
+      let buffer = new Buffer(data, 'base64')
       fs.writeFileSync(path, buffer, (e) => { if (e) console.log(e); this.saveIndex++ })
       this.saveIndex++
       if (this.saveIndex >= this.saveCount) {
-        var convertName = this.saveName
+        let convertName = this.saveName
         if (this.saveBatch > 1) { convertName += '_' + this.saveBatchIndex }
 
         child_process.execSync('gif.py ' + convertName + ' -cwd ' + this.saveName + ' -v -g', { cwd:this.savePath })
@@ -282,8 +282,8 @@ export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
         fs.writeFileSync(this.savePath + '\\' + convertName + '_cover.png', buffer, (e) => { if (e) console.log(e) })
 
               // ------ Call All randomize fuinctions
-        var keys = Object.keys(store.getState().sketches)
-        for (var i = 0; i < keys.length; i++) {
+        let keys = Object.keys(store.getState().sketches)
+        for (let i = 0; i < keys.length; i++) {
           fireShot(keys[i], 'randomize')
         }
 

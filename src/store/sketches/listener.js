@@ -39,11 +39,13 @@ const handleSketchCreate = (action, store) => {
         type: param.type || 'param',
         key: param.key,
         value: param.defaultValue,
-        min: param.min ? param.min : 0,
-        max: param.max ? param.max : 1,
         hidden: param.hidden === undefined ? false : param.hidden,
+        min: param.defaultMin ? param.defaultMin : 0,
+        max: param.defaultMax ? param.defaultMax : 1,
+        defaultMin: param.defaultMin ? param.defaultMin : 0,
+        defaultMax: param.defaultMax ? param.defaultMax : 1,
         id: uniqueId,
-        inputLinkIds
+        inputLinkIds,
       }))
     }
   }
@@ -60,7 +62,7 @@ const handleSketchCreate = (action, store) => {
         title: shot.title,
         method: shot.method,
         sketchId: uniqueSketchId,
-        inputLinkIds
+        inputLinkIds,
       }))
     }
   }
@@ -70,7 +72,7 @@ const handleSketchCreate = (action, store) => {
     moduleId: moduleId,
     paramIds,
     shotIds,
-    openedNodes: {}
+    openedNodes: {},
   }))
 
   store.dispatch(sceneSketchSelect(sceneId, uniqueSketchId))
@@ -142,26 +144,28 @@ const handleSketchReimport = (action, store) => {
       // If module param doesnt exist in sketch, it needs to be created
       const uniqueId = uid()
       paramIds = [
-        ...paramIds.slice(0, i), uniqueId, ...paramIds.slice(i)
+        ...paramIds.slice(0, i), uniqueId, ...paramIds.slice(i),
       ]
       store.dispatch(uNodeCreate(uniqueId, {
         title: moduleParam.title ? moduleParam.title : moduleParam.key,
         type: moduleParam.type || 'param',
         key: moduleParam.key,
         value: moduleParam.defaultValue,
-        min: moduleParam.min ? moduleParam.min : 0,
-        max: moduleParam.max ? moduleParam.max : 1,
         hidden: moduleParam.hidden === undefined ? false : moduleParam.hidden,
+        min: moduleParam.defaultMin ? moduleParam.defaultMin : 0,
+        max: moduleParam.defaultMax ? moduleParam.defaultMax : 1,
+        defaultMin: moduleParam.defaultMin ? moduleParam.defaultMin : 0,
+        defaultMax: moduleParam.defaultMax ? moduleParam.defaultMax : 1,
         id: uniqueId,
-        inputLinkIds: []
+        inputLinkIds: [],
       }))
     } else {
       // If param does exist, the title may still change
       const id = sketchParam.id
       store.dispatch(nodeUpdate(id, {
         title: moduleParam.title ? moduleParam.title : moduleParam.key,
-        min: moduleParam.min ? moduleParam.min : 0,
-        max: moduleParam.max ? moduleParam.max : 1
+        defaultMin: moduleParam.defaultMin ? moduleParam.defaultMin : 0,
+        defaultMax: moduleParam.defaultMax ? moduleParam.defaultMax : 1,
       }))
     }
   }
@@ -175,7 +179,7 @@ const handleSketchReimport = (action, store) => {
       // If module shot doesnt exist in sketch, it needs to be created
       const uniqueId = uid()
       shotIds = [
-        ...shotIds.slice(0, i), uniqueId, ...shotIds.slice(i)
+        ...shotIds.slice(0, i), uniqueId, ...shotIds.slice(i),
       ]
       store.dispatch(uNodeCreate(uniqueId, {
         id: uniqueId,
@@ -184,7 +188,7 @@ const handleSketchReimport = (action, store) => {
         title: moduleShot.title,
         method: moduleShot.method,
         sketchId: id,
-        inputLinkIds: []
+        inputLinkIds: [],
       }))
     } else {
       // If param does exist, the title may still change

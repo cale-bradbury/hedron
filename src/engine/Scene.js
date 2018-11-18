@@ -35,7 +35,7 @@ class Scene {
     this.post.addPass(shader)
   }
   removePost (shader) {
-    var i = this.postEffects.indexOf(shader)
+    let i = this.postEffects.indexOf(shader)
     if (i != -1) {
       this.postEffects.splice(i, 1)
       if (this.postEffects.length > 0) {

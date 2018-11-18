@@ -8,7 +8,7 @@ const mapStateToProps = (state, ownProps) => {
   const node = getNode(state, ownProps.nodeId)
   return {
     min: node.min,
-    max: node.max
+    max: node.max,
   }
 }
 
@@ -16,12 +16,12 @@ const mapDispatchToProps = (dispatch, ownProps) => {
   return {
     onChange: (value) => {
       dispatch(nodeRangeUpdate(ownProps.nodeId, value))
-    }
+    },
   }
 }
 
 const Range = reduxForm({
-  form: 'range'
+  form: 'range',
 })(RangeComponent)
 
 export default connect(
