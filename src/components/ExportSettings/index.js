@@ -14,7 +14,7 @@ const Wrapper = styled.div`
 
 const ExportSettings = ({ onSaveClick }) => (
   <Wrapper>
-    <ViewHeader>Settings</ViewHeader>
+    <ViewHeader>Export Settings</ViewHeader>
     <form onSubmit={e => e.preventDefault()}>
       <h2>Gif :)</h2>
       <Row>
