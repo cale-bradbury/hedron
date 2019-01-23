@@ -198,6 +198,7 @@ export const saveSequence = () => {
 
 export const beginSaveSequence = () => {
   const settings = store.getState().exportSettings
+  console.log(settings)
   this.savePath = settings.gifPath + '\\' + settings.gifName // path.toString();
   if (!fs.existsSync(this.savePath)) {
     fs.mkdirSync(this.savePath)
@@ -242,7 +243,7 @@ export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
       // Render the correct thing
       renderLogic(sceneA, sceneB, mixState)
       // Copy pixels to preview
-      copyPixels(previewContext)
+      //copyPixels(previewContext)
     } else {
       // mix and preview are not the same
       // Show output canvas

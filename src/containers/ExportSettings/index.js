@@ -17,7 +17,7 @@ const mapDispatchToProps = (dispatch, ownProps) => ({
   },
   onSaveClick: () => {
     console.log(ownProps)
-    beginSaveSequence(ownProps.gifPath + '\\' + ownProps.gifName)
+    beginSaveSequence()
   },
 })
 

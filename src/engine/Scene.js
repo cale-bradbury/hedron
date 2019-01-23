@@ -57,7 +57,8 @@ class Scene {
       }
       this.renderer.setRenderTarget(null)
       this.post.renderer = this.renderer
-      this.post.reset(renderTarget)
+      if(this.post.renderTarget1 != renderTarget)
+        this.post.reset(renderTarget)
       this.post.render()
     } else {
       this.renderer.render(scene, camera, renderTarget, forceClear)
