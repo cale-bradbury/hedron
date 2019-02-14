@@ -50,7 +50,7 @@ export const createMainWindow = () => {
         ipcMain.removeListener('reposition-output-window', outputSetBounds)
       })
 
-      if (!isDevelopment || 1 === 1) {
+      if (!isDevelopment) {
         setTimeout(() => {
           mainWindow.setFullScreen(true)
           event.newGuest.setAutoHideMenuBar(true)
@@ -96,10 +96,16 @@ export const createMainWindow = () => {
       mainWindow.focus()
     })
   })
-  /*mainWindow.webContents.on('will-navigate', (event, url) => {
+
+  // Open anchor tag links in new browser window
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    // Don't do anything if "localhost" as this is most likely
+    // dev auto refresh rather than an anchor tag href
+    if (url.includes('http://localhost:')) { return }
+
     event.preventDefault()
     shell.openExternal(url)
-  })*/
+  })
 
   setTimeout(() => {
     mainWindow.webContents.send('args', argv)
