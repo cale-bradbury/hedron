@@ -219,12 +219,12 @@ export const beginSaveSequence = () => {
 export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
   quadScene.material.uniforms.mixRatio.value = mixRatio
   let mixState = 'mix'
-
-  if (mixRatio === 0) {
-    mixState = 'A'
-  } else if (mixRatio === 1) {
-    mixState = 'B'
-  }
+  /* always using mix, a bug in my post effects causes slowdown if this is not the case
+    if (mixRatio === 0) {
+      mixState = 'A'
+    } else if (mixRatio === 1) {
+      mixState = 'B'
+    }*/
 
   if (!isSendingOutput) {
     // Always using dom element when not outputting
