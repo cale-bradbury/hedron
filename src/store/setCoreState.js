@@ -38,25 +38,25 @@ export default store => {
     }
   ))
 
-  store.dispatch(uNodeCreate('audioLevelsPower', {
-    title: 'Levels Power',
-    type: 'param',
-    value: 0,
-    min: 0.5,
-    max: 3,
-    id: 'audioLevelsPower',
-  }))
-  store.dispatch(uNodeCreate('audioLevelsPeakFalloff', {
-    title: 'Levels Peak Falloff',
-    type: 'param',
-    value: 1,
-    id: 'audioLevelsPeakFalloff',
-  }))
-  store.dispatch(uNodeCreate('audioLevelsSmoothing', {
-    title: 'Levels Smoothing',
-    type: 'param',
-    value: 0,
-    id: 'audioLevelsSmoothing',
+  store.dispatch(uNodeCreate('sketchOrganization', {
+    title: 'Sketch Organization',
+    type: 'select',
+    value: 'category',
+    id: 'sketchOrganization',
+    options: [
+      {
+        value: 'folder',
+        label: 'Folder',
+      },
+      {
+        value: 'category',
+        label: 'Category',
+      },
+      {
+        value: 'author',
+        label: 'Author',
+      },
+    ],
   }))
 
   store.dispatch(uNodeCreate('audioLevelsFalloff', {

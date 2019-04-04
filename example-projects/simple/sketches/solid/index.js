@@ -47,7 +47,7 @@ class Solid {
     const mat = new THREE.MeshBasicMaterial(
       { wireframe: true, color: 0xffffff }
     )
-    const size = 300
+    const size = 1
 
     // Array geometries (the platonic solids!)
     const geoms = [
@@ -55,7 +55,7 @@ class Solid {
       new THREE.BoxGeometry(size, size, size),
       new THREE.OctahedronGeometry(size),
       new THREE.TetrahedronGeometry(size),
-      new THREE.DodecahedronGeometry(size)
+      new THREE.DodecahedronGeometry(size),
     ]
 
     // Loop through meshes
@@ -148,6 +148,7 @@ class Solid {
     Use the destructor method to do anything when the sketch is deleted
   **/
   destructor () {
+    // eslint-disable-next-line no-console
     console.log('Solid sketch deleted!')
   }
 }

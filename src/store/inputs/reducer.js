@@ -1,18 +1,6 @@
 const defaultState = {
-  audio_0: {
-    value: 0,
-    assignedLinkIds: [],
-  },
-  audio_1: {
-    value: 0,
-    assignedLinkIds: [],
-  },
-  audio_2: {
-    value: 0,
-    assignedLinkIds: [],
-  },
-  audio_3: {
-    value: 0,
+  audio: {
+    value: [0, 0, 0, 0],
     assignedLinkIds: [],
   },
   lfo: {
@@ -42,7 +30,6 @@ const inputsReducer = (state = defaultState, action) => {
           [p.inputId]: {
             ...state[p.inputId],
             assignedLinkIds: [...state[p.inputId].assignedLinkIds, p.linkId],
-            deviceId: p.deviceId,
           },
         }
       } else {
@@ -50,7 +37,6 @@ const inputsReducer = (state = defaultState, action) => {
           ...state,
           [p.inputId]: {
             assignedLinkIds: [p.linkId],
-            deviceId: p.deviceId,
           },
         }
       }

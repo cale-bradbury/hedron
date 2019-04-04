@@ -68,12 +68,14 @@ const Link = styled(RouterLink)`
   text-decoration: none;
 `
 
-const Button = ({ onClick, ...props }) =>
-  <Wrapper {...props} onClick={onClick}>
-    <Inner {...props}>
+// Anything in ...props could be a function like onClick, onMouseDown, etc
+// so we only want that to be given to one element to prevent things firing twice
+const Button = ({ color, size, disabled, reversed, children, to, ...props }) =>
+  <Wrapper {...props} color={color} size={size} disabled={disabled} reversed={reversed}>
+    <Inner color={color} size={size} disabled={disabled} reversed={reversed}>
       {props.to
-        ? <Link to='/' {...props} />
-        : <a>{props.children}</a>
+        ? <Link to={to}>{children}</Link>
+        : <a>{children}</a>
       }
     </Inner>
   </Wrapper>
@@ -81,7 +83,10 @@ const Button = ({ onClick, ...props }) =>
 Button.propTypes = {
   to: PropTypes.string,
   children: PropTypes.node.isRequired,
-  onClick: PropTypes.func,
+  color: PropTypes.string,
+  size: PropTypes.string,
+  disabled: PropTypes.bool,
+  reversed: PropTypes.bool,
 }
 
 export default Button

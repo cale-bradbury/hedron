@@ -12,9 +12,9 @@ export function uSketchDelete (id, sceneId) {
   }
 }
 
-export function uSketchReimport (id) {
+export function uSketchReloadFile (id) {
   return {
-    type: 'U_SKETCH_REIMPORT',
+    type: 'U_SKETCH_RELOAD_FILE',
     payload: { id },
   }
 }
@@ -42,10 +42,24 @@ export function sketchesReplaceAll (sketches) {
   }
 }
 
-export function sketchNodeOpenedToggle (sketchId, nodeId, nodeType) {
+export function uSketchNodeOpenedToggle (nodeId) {
   return {
-    type: 'SKETCH_NODE_OPENED_TOGGLE',
-    payload: { sketchId, nodeId, nodeType },
+    type: 'U_SKETCH_NODE_OPENED_TOGGLE',
+    payload: { nodeId },
+  }
+}
+
+export function rSketchNodeOpenedToggle (sketchId, nodeId) {
+  return {
+    type: 'R_SKETCH_NODE_OPENED_TOGGLE',
+    payload: { sketchId, nodeId },
+  }
+}
+
+export function sketchNodeOpenedClose (sketchId) {
+  return {
+    type: 'SKETCH_NODE_OPENED_CLOSE',
+    payload: { sketchId },
   }
 }
 

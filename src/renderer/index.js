@@ -22,7 +22,6 @@ import Stats from 'stats.js'
 import createDebounce from 'redux-debounced'
 import tryRequire from 'try-require'
 
-import 'react-select/dist/react-select.css'
 import '../style.css'
 
 // inputs
@@ -43,16 +42,12 @@ if (process.env.NODE_ENV !== 'development') {
   composeEnhancers = compose
 } else {
   composeEnhancers = composeWithDevTools({
-    // Redux devtools plays up due to the fact so many fast firing actions
-    // are blacklisted. maxAge and latency below helps but isn't perfect
-    // https://github.com/zalmoxisus/redux-devtools-extension/issues/316
-    maxAge: 1000,
-    latency: 3000,
     actionsBlacklist: [
       'CLOCK_PULSE', 'CLOCK_BEAT_INC', 'CLOCK_BPM_UPDATE', 'INPUT_FIRED',
       'NODE_VALUE_UPDATE', 'NODE_RANGE_UPDATE', 'NODE_SHOT_ARM', 'NODE_SHOT_DISARM', 'NODE_SHOT_FIRED',
       'NODE_VALUES_BATCH_UPDATE',
     ],
+    maxAge: 10,
   })
 }
 
@@ -101,6 +96,7 @@ initiateAudio(store)
 initiateMidi(store)
 initiateGeneratedClock(store)
 initiateScreens(store)
+
 engine.run(store, stats)
 
 if (isDevelopment) {

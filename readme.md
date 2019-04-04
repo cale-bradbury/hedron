@@ -18,7 +18,6 @@ Perform live shows with your three.js creations.
 - ⏲️ Use MIDI clock input or tap tempo to get BPM
 - 🌇🎚️🌋 Create many scenes and crossfade between them
 - 🔍 Preview and compose scenes before displaying them to the audience
-- 🎛️ Use virtual MIDI banks to get the most out of your controllers
 - 💡 Use MIDI Learn to quickly assign controls
 - ⚙️ Support for multiple MIDI control modes (abs, rel1, rel2, rel3)
 - 📽️ Easily send output picture to external display
@@ -30,10 +29,9 @@ Perform live shows with your three.js creations.
 Download the latest [release](https://github.com/nudibranchrecords/hedron/releases) or
 [build from source](#build-from-source).
 
-### Load trippy example project
+### Load example project
 1. If you haven't got the source code, download the latest example projects zip from the [releases](https://github.com/nudibranchrecords/hedron/releases) page.
-2. Choose "Load Existing Project". Locate the repo directory. Open `example-projects/trippy/project.json`
-3. An alert will appear. Choose "Locate Sketch Folder" and open `/example-projects/trippy/sketches`
+2. Choose "Load Existing Project". Locate the repo directory, choose a folder and open `project.json`.
 4. Play it some music, tap BPM, experiment with the controls
 5. 😎
 

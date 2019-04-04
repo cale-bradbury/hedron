@@ -12,7 +12,7 @@ import { fireShot } from './'
 let store, domEl, outputEl, viewerEl, isSendingOutput, rendererWidth, rendererHeight, previewCanvas, previewContext, outputCanvas, outputContext
 
 let quadScene, rttA, rttB
-
+let save
 export let renderer
 
 export const setRenderer = () => {
@@ -49,7 +49,7 @@ export const setViewerEl = (el) => {
 
 export const setSize = (w = -1) => {
   const settings = store.getState().settings
-  if (this.savePath) { w = store.getState().exportSettings.gifWidth }
+  if (save) { w = store.getState().exportSettings.gifWidth }
   if (settings.aspectW == 0 || settings.aspectH == 0) { return }
   let width, ratio
 
@@ -189,26 +189,28 @@ export const saveSequence = () => {
   remote.dialog.showOpenDialog({
     properties: ['openDirectory'],
   },
-	path => {
-  if (path) {
-    beginSaveSequence(path)
-  }
-})
+    path => {
+      if (path) {
+        beginSaveSequence(path)
+      }
+    })
 }
 
 export const beginSaveSequence = () => {
   const settings = store.getState().exportSettings
-  this.savePath = settings.gifPath + '\\' + settings.gifName // path.toString();
-  if (!fs.existsSync(this.savePath)) {
-    fs.mkdirSync(this.savePath)
+  save = {
+    path: settings.gifPath + '\\' + settings.gifName, // path.toString();
+    name: settings.gifName,
+    count: settings.gifFrames,
+    prewarm: settings.gifWarmup,
+    batch: settings.gifGenerate,
+    batchIndex: 0,
+    index: 0,
   }
-  this.saveName = settings.gifName
-  this.saveCount = settings.gifFrames
-  this.savePrewarm = settings.gifWarmup
-  this.saveBatch = settings.gifGenerate
-  this.saveBatchIndex = 0
-  this.saveIndex = 0
-  store.dispatch(settingsUpdate({ clockGenerated: false, aspectW:settings.gifWidth, aspectH:settings.gifHeight }))
+  if (!fs.existsSync(save.path)) {
+    fs.mkdirSync(save.path)
+  }
+  store.dispatch(settingsUpdate({ clockGenerated: false, aspectW: settings.gifWidth, aspectH: settings.gifHeight }))
   setSize(settings.gifWidth)
   store.dispatch(clockReset())
   store.dispatch(clockPulse())
@@ -259,43 +261,43 @@ export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
     }
   }
 
-  if (this.savePath) {
-    if (this.savePrewarm > 0) {
-      this.savePrewarm--
+  if (save && save.path) {
+    if (save.prewarm > 0) {
+      save.prewarm--
     } else {
-      let num = this.saveIndex + ''
-      let numberLength = this.saveCount.toString().length
+      let num = save.index + ''
+      let numberLength = save.count.toString().length
       while (num.length < numberLength) { num = '0' + num }
-      let path = this.savePath + '\\' + this.saveName + num + '.png'
+      let path = save.path + '\\' + save.name + num + '.png'
 
       let data = domEl.toDataURL('image/png')
       data = data.slice(data.indexOf(',') + 1)// .replace(/\s/g,'+');
       let buffer = new Buffer(data, 'base64')
-      fs.writeFileSync(path, buffer, (e) => { if (e) console.log(e); this.saveIndex++ })
-      this.saveIndex++
-      if (this.saveIndex >= this.saveCount) {
-        let convertName = this.saveName
-        if (this.saveBatch > 1) { convertName += '_' + this.saveBatchIndex }
+      fs.writeFileSync(path, buffer, (e) => { if (e) console.log(e); save.index++ })
+      save.index++
+      if (save.index >= save.count) {
+        let convertName = save.name
+        if (save.batch > 1) { convertName += '_' + save.batchIndex }
 
-        child_process.execSync('gif.py ' + convertName + ' -cwd ' + this.saveName + ' -v -g', { cwd:this.savePath })
+        child_process.execSync('gif.py ' + convertName + ' -cwd ' + save.name + ' -v -g', { cwd: save.path })
 
-        fs.writeFileSync(this.savePath + '\\' + convertName + '_cover.png', buffer, (e) => { if (e) console.log(e) })
+        fs.writeFileSync(save.path + '\\' + convertName + '_cover.png', buffer, (e) => { if (e) console.log(e) })
 
-              // ------ Call All randomize fuinctions
+        // ------ Call All randomize fuinctions
         let keys = Object.keys(store.getState().sketches)
         for (let i = 0; i < keys.length; i++) {
           fireShot(keys[i], 'randomize')
         }
 
-        this.saveBatchIndex++
-        if (this.saveBatchIndex < this.saveBatch) {
+        save.batchIndex++
+        if (save.batchIndex < save.batch) {
           const settings = store.getState().exportSettings
-          this.saveName = settings.gifName
-          this.saveIndex = 0
-          this.savePrewarm = settings.gifWarmup
+          save.name = settings.gifName
+          save.index = 0
+          save.prewarm = settings.gifWarmup
           store.dispatch(clockReset())
         } else {
-          this.savePath = null
+          save.path = null
           store.dispatch(settingsUpdate({ clockGenerated: true }))
           setSize()
         }
