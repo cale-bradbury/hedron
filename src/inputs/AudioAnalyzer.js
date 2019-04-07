@@ -2,8 +2,7 @@ import * as THREE from 'three'
 import { settingsUpdate } from '../store/settings/actions'
 
 let generateAudioTexture = false, computeFullSpectrum = false;
-
-export default class AudioAnalyzer {
+export class AudioAnalyzer {
   constructor(stream) {
     const context = new window.AudioContext()
     const source = context.createMediaStreamSource(stream)
@@ -57,6 +56,8 @@ export default class AudioAnalyzer {
     // creating audio texture
     this.texture = new THREE.DataTexture(self.data, this.analyser.frequencyBinCount, 1, THREE.LuminanceFormat)
     this.texture.magFilter = this.texture.minFilter = THREE.LinearFilter
+    this.texture.image.data = this.textureData
+    this.texture.needsUpdate = true
   }
 
   lerp(v0, v1, t) {

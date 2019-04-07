@@ -1,9 +1,17 @@
-import AudioAnalyzer from './AudioAnalyzer'
+import { AudioAnalyzer } from './AudioAnalyzer'
 import { inputFired } from '../store/inputs/actions'
+import { uNodeCreate } from '../store/nodes/actions';
 
 export default (store) => {
   const gotStream = (stream) => {
     const input = new AudioAnalyzer(stream)
+
+    store.dispatch(uNodeCreate('audioTexture', {
+      title: 'AudioTexture',
+      type: 'texture',
+      value: input.texture,
+      id: 'audioTexture',
+    }))
 
     let bands
     window.setInterval(() => {
@@ -14,6 +22,12 @@ export default (store) => {
       input.smoothing = state.nodes['audioLevelsSmoothing'].value * 0.99
       input.levelsPower = state.nodes['audioLevelsPower'].value * 3 + 0.5
       bands = input.update()
+      store.dispatch(uNodeCreate('audioTexture', {
+        title: 'AudioTexture',
+        type: 'texture',
+        value: input.texture,
+        id: 'audioTexture',
+      }))
       store.dispatch(inputFired('audio', bands, { type: 'audio' }))
     }, 30)
   }

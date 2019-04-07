@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 const EffectComposer = require('three-effectcomposer')(THREE)
-import AudioAnalyzer from '../inputs/AudioAnalyzer'
 
 class Scene {
   constructor(renderer) {
@@ -12,7 +11,6 @@ class Scene {
     this.postEffects = []
     this.renderPass = new EffectComposer.RenderPass(this.scene, this.camera)
     this.addPost(this.renderPass)
-    this.analyzer = AudioAnalyzer
   }
 
   setRatio(ratio) {

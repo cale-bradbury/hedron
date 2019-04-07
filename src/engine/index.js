@@ -204,6 +204,7 @@ export const run = (injectedStore, stats) => {
         sketch = sketches[sketchId]
         const params = getSketchParams(state, sketchId)
         allParams = getSketchParams(state, null, sceneId)
+        allParams.audioTexture = state.nodes.audioTexture.value;
         sketch.update(params, tick, elapsedFrames, allParams)
       })
     }
