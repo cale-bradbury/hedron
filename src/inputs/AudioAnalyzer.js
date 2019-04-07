@@ -3,7 +3,7 @@ import { settingsUpdate } from '../store/settings/actions'
 
 let generateAudioTexture = false, computeFullSpectrum = false;
 
-export class AudioAnalyzer {
+export default class AudioAnalyzer {
   constructor(stream) {
     const context = new window.AudioContext()
     const source = context.createMediaStreamSource(stream)
