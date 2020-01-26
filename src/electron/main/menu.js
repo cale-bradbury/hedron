@@ -41,6 +41,11 @@ const projectMenu = {
       click: () => { onClick('project-settings') },
       accelerator: 'CommandOrControl+,',
     },
+    {
+      label: 'Export Render',
+      click: () => { onClick('project-export-render') },
+      accelerator: 'CommandOrControl+m',
+    },
   ],
 }
 
