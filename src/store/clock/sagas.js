@@ -3,11 +3,9 @@ import now from 'performance-now'
 import { takeEvery, put, call } from 'redux-saga/effects'
 import { inputFired } from '../inputs/actions'
 import * as a from './actions'
-//import { linkableActionCreate } from '../../store/linkableActions/actions'
 import { tap } from '../../inputs/GeneratedClock'
-//import { uNodeCreate } from '../nodes/actions'
 
-const ppqn = 24 //60?
+const ppqn = 24
 let pulses, beats, lastBar, totalBeats
 let seqStepCount = 0 // Sequencer step count
 const ppSeqStep = ppqn / 8 // Pulses per 8th beat
@@ -21,7 +19,7 @@ export const clockReset = () => {
   lastBar = now()
 }
 
-export function* clockSnap() {
+export function* clockSnap () {
   // Get how many sequence pulses since last sequence step
   const seqMod = seqStepCount % ppqn
 
@@ -72,7 +70,7 @@ export const calcBpm = () => {
   return Math.round(240000 / msperbar)
 }
 
-export function* clockUpdate() {
+export function* clockUpdate () {
   const info = yield call(newPulse)
   yield put(inputFired('lfo', info.delta, {
     type: 'lfo',
@@ -94,24 +92,16 @@ export function* clockUpdate() {
   }
 }
 
-export function* tapTempo() {
+export function* tapTempo () {
   tap()
   clockSnap()
 }
 
-export function* watchClock() {
+export function* watchClock () {
   yield takeEvery('CLOCK_PULSE', clockUpdate)
   yield takeEvery('CLOCK_RESET', clockReset)
   yield takeEvery('CLOCK_SNAP', clockSnap)
   yield takeEvery('TAP_TEMPO', tapTempo)
-  /*yield put(uNodeCreate('onTapTempoNode', {
-    title: 'onTapTempoNode',
-    type: 'shot',
-    id: 'onTapTempoNode',
-    inputLinkIds: ['onTapTempoNode'],
-  }))
-
-  yield put(linkableActionCreate('onTapTempoNode', a.tapTempo()))*/
 }
 
 clockReset()

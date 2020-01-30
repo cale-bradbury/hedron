@@ -1,6 +1,6 @@
-import { AudioAnalyzer } from './AudioAnalyzer'
+import AudioAnalyzer from './AudioAnalyzer'
 import { inputFired } from '../store/inputs/actions'
-import { uNodeCreate } from '../store/nodes/actions';
+import { uNodeCreate } from '../store/nodes/actions'
 
 export default (store) => {
   const gotStream = (stream) => {

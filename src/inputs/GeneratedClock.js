@@ -14,7 +14,7 @@ const loop = () => {
   // Only pulse clock if is generated
   const settings = store.getState().settings
   const bpm = settings.clockBpm
-  const mspp = (60 / (bpm * 60)) * 1000
+  const mspp = (60 / (bpm * 24)) * 1000
 
   if (settings.clockGenerated) {
     // Check to see if time passed is more than time per pulse

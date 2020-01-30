@@ -1,6 +1,6 @@
 const { THREE } = window.HEDRON.dependencies
 
-class AudioInput {
+class AudioAnalyzer {
   constructor (stream) {
     const context = new window.AudioContext()
     const source = context.createMediaStreamSource(stream)
@@ -111,4 +111,4 @@ class AudioInput {
   }
 }
 
-export default AudioInput
+export default AudioAnalyzer
