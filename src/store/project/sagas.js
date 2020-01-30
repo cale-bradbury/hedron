@@ -1,5 +1,6 @@
 import { call, select, takeEvery, put } from 'redux-saga/effects'
 import { save, load } from '../../utils/file'
+import uiEventEmitter from '../../utils/uiEventEmitter'
 import { getProjectData, getProjectFilepath } from './selectors'
 import getCurrentSceneId from '../../selectors/getCurrentSceneId'
 import { projectLoadSuccess, projectRehydrate, projectError, projectSaveAs,
@@ -9,6 +10,7 @@ import { projectLoadSuccess, projectRehydrate, projectError, projectSaveAs,
 import { uSceneCreate } from '../scenes/actions'
 import history from '../../history'
 import { remote } from 'electron'
+import { processDevices } from '../../inputs/MidiInput'
 
 const fileFilters = [
   { name: 'JSON', extensions: ['json'] },
@@ -16,12 +18,13 @@ const fileFilters = [
 export function* saveAsProject (dispatch) {
   remote.dialog.showSaveDialog({
     filters: fileFilters,
-  },
-  filePath => {
+  }).then(({ filePath }) => {
     if (filePath) {
       dispatch(projectFilepathUpdate(filePath))
       dispatch(projectSave())
     }
+  }).catch(err => {
+    console.error(err)
   })
 }
 
@@ -43,12 +46,14 @@ export function* saveProject () {
 export function* loadProject (dispatch) {
   remote.dialog.showOpenDialog({
     filters: fileFilters,
-  },
-  filePath => {
+  }).then(result => {
+    const filePath = result.filePaths[0]
     if (filePath) {
-      dispatch(projectFilepathUpdate(filePath[0]))
+      dispatch(projectFilepathUpdate(filePath))
       dispatch(projectLoadRequest())
     }
+  }).catch(err => {
+    console.error(err)
   })
 }
 
@@ -57,9 +62,11 @@ export function* loadProjectRequest () {
     const filepath = yield select(getProjectFilepath)
     const projectData = yield call(load, filepath)
     yield put(projectRehydrate(projectData))
+    yield call(processDevices)
     yield put(projectFilepathUpdate(filepath))
     yield put(projectLoadSuccess(projectData))
     yield call([history, history.replace], projectData.router.location.pathname)
+    yield call([uiEventEmitter, uiEventEmitter.emit], 'repaint')
   } catch (error) {
     console.error(error)
     yield put(projectError(`Failed to load file: ${error.message}`))
@@ -69,12 +76,14 @@ export function* loadProjectRequest () {
 export function* chooseSketchesFolder (dispatch, action) {
   const p = action.payload
   const sceneId = yield select(getCurrentSceneId)
-  remote.dialog.showOpenDialog({
-    properties: ['openDirectory'],
-  },
-  filePath => {
+  remote.dialog.showOpenDialog(
+    {
+      properties: ['openDirectory'],
+    }
+  ).then(result => {
+    const filePath = result.filePaths[0]
     if (filePath) {
-      dispatch(projectSketchesPathUpdate(filePath[0]))
+      dispatch(projectSketchesPathUpdate(filePath))
       dispatch(projectLoadSuccess())
       dispatch(projectErrorPopupClose())
       if (!p.disableRedirect) {
@@ -84,6 +93,8 @@ export function* chooseSketchesFolder (dispatch, action) {
         dispatch(uSceneCreate())
       }
     }
+  }).catch(err => {
+    console.error(err)
   })
 }
 

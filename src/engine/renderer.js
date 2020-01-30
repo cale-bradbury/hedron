@@ -1,60 +1,183 @@
-import * as THREE from 'three'
+const { THREE, postprocessing } = window.HEDRON.dependencies
+const { EffectComposer, RenderPass, SavePass, TextureEffect, EffectPass } = postprocessing
+
+import getSketchParams from '../selectors/getSketchParams'
+
 import uiEventEmitter from '../utils/uiEventEmitter'
 import * as engine from './'
-import QuadScene from './QuadScene'
+
+import getScenes from '../selectors/getScenes'
+
+// EXPORT STUFF
 import { clockPulse, clockReset } from '../store/clock/actions'
 import { settingsUpdate } from '../store/settings/actions'
 let fs = require('fs')
-let child_process = require('child_process')
+let childProcess = require('child_process')
+const _path = require('path')
 import { remote } from 'electron'
-import { fireShot } from './'
-
-let store, domEl, outputEl, viewerEl, isSendingOutput, rendererWidth, rendererHeight, previewCanvas, previewContext, outputCanvas, outputContext
-
-let quadScene, rttA, rttB
 let save
-export let renderer
+// END EXPORT STUFF
+
+let store, domEl, outputEl, viewerEl, isSendingOutput, rendererWidth, rendererHeight,
+  previewCanvas, previewContext, outputCanvas, outputContext
+
+let blendOpacity
+let delta
+
+const renderScenes = new Map()
+
+const channelPasses = {
+  'A': [],
+  'B': [],
+}
+
+export let renderer, composer
+
+// Store renderer size as an object
+export const size = { width: 0, height: 0 }
+
+const blankTexture = new THREE.Texture()
+
+const channelTextureEffect = {
+  A: new TextureEffect({ texture: blankTexture }),
+  B: new TextureEffect({ texture: blankTexture }),
+}
 
 export const setRenderer = () => {
-  const settings = store.getState().settings
-
   renderer = new THREE.WebGLRenderer({
-    antialias: settings.antialias,
+    antialias: false, // antialiasing should be handled by the composer
   })
 
   domEl = renderer.domElement
   viewerEl.innerHTML = ''
   viewerEl.appendChild(domEl)
-  const renderTargetParameters = {
-    minFilter: THREE.LinearFilter,
-    magFilter: THREE.LinearFilter,
-    format: THREE.RGBFormat,
-    stencilBuffer: false,
-  }
-  rttA = new THREE.WebGLRenderTarget(null, null, renderTargetParameters)
-  rttB = new THREE.WebGLRenderTarget(null, null, renderTargetParameters)
+  composer = new EffectComposer(renderer)
+}
 
-  quadScene = new QuadScene(rttA, rttB)
+export const channelUpdate = (sceneId, c) => {
+  // Disable previous passes in channel
+  channelPasses[c].forEach(pass => { pass.enabled = false })
+  channelPasses[c] = []
 
-  // Set ratios for each scene
-  const engineScenes = engine.scenes
-  for (const key in engineScenes) {
-    engineScenes[key].renderer = renderer
+  if (!sceneId) {
+    channelTextureEffect[c].uniforms.get('texture').value = blankTexture
+    return
   }
+
+  const renderScene = renderScenes.get(sceneId)
+
+  // Set new passes for the channel and enable them
+  channelPasses[c] = renderScene.passes
+  renderScene.passes.forEach(pass => { pass.enabled = true })
+
+  // Set output texture for the channel
+  channelTextureEffect[c].uniforms.get('texture').value = renderScene.outputTexture
+}
+
+export const getSketchPasses = (state, sketchId, hedronScene) => {
+  const module = engine.sketches[sketchId]
+
+  if (module.initiatePostProcessing) {
+    const params = getSketchParams(state, sketchId)
+
+    return module.initiatePostProcessing({
+      scene: hedronScene.scene,
+      camera: hedronScene.camera,
+      params,
+      sketchesDir: `file://${engine.sketchesDir}`,
+      composer,
+      outputSize: size,
+    }) || []
+  } else {
+    return []
+  }
+}
+
+export const sceneRenderSetup = (hedronScene, passes) => {
+  const renderScene = {
+    passes: [],
+    outputTexture: null,
+  }
+
+  // Render the channel as a pass
+  renderScene.passes.push(new RenderPass(hedronScene.scene, hedronScene.camera))
+
+  // Add all custom passes
+  renderScene.passes.push(...passes)
+
+  // Channel will also have their final pass saved to a texture to be mixed
+  // TODO: We can avoid this pass if the scene has no extra passes, by using a render target from the render pass
+  const savePass = new SavePass()
+  renderScene.passes.push(savePass)
+  renderScene.outputTexture = savePass.renderTarget.texture
+
+  return renderScene
+}
+
+export const setPostProcessing = () => {
+  const state = store.getState()
+  const stateScenes = getScenes(state)
+
+  composer.reset()
+
+  const globalPasses = []
+
+  // Loop through all scenes and check for postprocessing
+  stateScenes.forEach(stateScene => {
+    const hedronScene = engine.scenes[stateScene.id]
+    const localPasses = []
+    stateScene.sketchIds.forEach(sketchId => {
+      const passes = getSketchPasses(state, sketchId, hedronScene)
+      if (stateScene.settings.globalPostProcessingEnabled) {
+        // If global, add to global passes list to be added to composer later
+        globalPasses.push(...passes)
+      } else {
+        // Otherwise add to local passes to be added now
+        localPasses.push(...passes)
+      }
+    })
+
+    const renderScene = sceneRenderSetup(hedronScene, localPasses)
+    renderScene.passes.forEach(pass => {
+      composer.addPass(pass)
+      // Disable all passes (will be enabled if added to channel)
+      pass.enabled = false
+    })
+    renderScenes.set(
+      stateScene.id,
+      renderScene
+    )
+  })
+
+  // Mix the two channels
+  const mixPass = new EffectPass(null, channelTextureEffect.A, channelTextureEffect.B)
+  mixPass.renderToScreen = true
+  composer.addPass(mixPass)
+
+  // Add global passes to composer and set last pass to render to the screen
+  if (globalPasses.length) {
+    globalPasses.forEach(pass => { composer.addPass(pass) })
+    mixPass.renderToScreen = false
+    globalPasses[globalPasses.length - 1].renderToScreen = true
+  }
+
+  // The channel mix value will will be set to channelB's opacity
+  blendOpacity = channelTextureEffect.B.blendMode.opacity
+
+  // Set up channels
+  channelUpdate(state.scenes.channels.A, 'A')
+  channelUpdate(state.scenes.channels.B, 'B')
 }
 
 export const setViewerEl = (el) => {
   viewerEl = el
 }
 
-export const setSize = (w = -1) => {
+export const setSize = () => {
   const settings = store.getState().settings
-  if (save) { w = store.getState().exportSettings.gifWidth }
-  if (settings.aspectW == 0 || settings.aspectH == 0) { return }
   let width, ratio
-
-  if (w != -1) {
-    width = w
+  if (save) {
+    width = store.getState().exportSettings.gifWidth
     ratio = settings.aspectW / settings.aspectH
   } else if (isSendingOutput) {
     // Get width and ratio from output window
@@ -66,29 +189,23 @@ export const setSize = (w = -1) => {
 
     outputCanvas.width = width
     outputCanvas.height = width / ratio
-
-    renderer.setSize(viewerEl.offsetWidth, viewerEl.offsetWidth / ratio)
   } else {
     // Basic width and ratio if no output
     width = viewerEl.offsetWidth
     ratio = settings.aspectW / settings.aspectH
   }
+
   const perc = 100 / ratio
   const height = width / ratio
 
-  renderer.setSize(width, height)
-
-  // Set sizes for render targets
-  rttA.setSize(width, height)
-  rttB.setSize(width, height)
-
-  // Set sizes for quad scene
-  quadScene.setSize(width, height)
+  composer.setSize(width, height)
+  size.width = width
+  size.height = height
 
   // Set ratios for each scene
   const engineScenes = engine.scenes
   for (const key in engineScenes) {
-    engineScenes[key].setSize(width, height)
+    engineScenes[key].setRatio(ratio)
   }
 
   rendererWidth = width
@@ -101,9 +218,6 @@ export const setSize = (w = -1) => {
 export const initiate = (injectedStore) => {
   store = injectedStore
 
-  uiEventEmitter.on('reset-renderer', () => {
-    setRenderer()
-  })
   uiEventEmitter.on('repaint', () => {
     setSize()
   })
@@ -143,6 +257,7 @@ export const setOutput = (win) => {
   isSendingOutput = true
 
   setSize()
+
   win.addEventListener('resize', () => {
     uiEventEmitter.emit('repaint')
   })
@@ -158,26 +273,31 @@ export const stopOutput = () => {
   setSize()
 }
 
-const renderChannels = (sceneA, sceneB) => {
-  sceneA && sceneA.render(sceneA.scene, sceneA.camera, rttA, true)
-  sceneB && sceneB.render(sceneB.scene, sceneB.camera, rttB, true)
-  renderer.render(quadScene.scene, quadScene.camera)
+const renderChannels = (mixRatio) => {
+  if (blendOpacity) blendOpacity.value = mixRatio
+  composer.render(delta)
 }
 
-const renderSingle = (scene) => {
-  scene && scene.render(scene.scene, scene.camera)
+const renderSingle = (disableChannel, mixRatio) => {
+  channelPasses[disableChannel].forEach(pass => { pass.enabled = false })
+
+  if (blendOpacity) blendOpacity.value = mixRatio
+  composer.render(delta)
 }
 
-const renderLogic = (sceneA, sceneB, mix) => {
-  switch (mix) {
+const renderLogic = (viewerMode, mixRatio) => {
+  channelPasses['A'].forEach(pass => { pass.enabled = true })
+  channelPasses['B'].forEach(pass => { pass.enabled = true })
+
+  switch (viewerMode) {
     case 'A':
-      renderSingle(sceneA)
+      renderSingle('B', 0)
       break
     case 'B':
-      renderSingle(sceneB)
+      renderSingle('A', 1)
       break
     default:
-      renderChannels(sceneA, sceneB, mix)
+      renderChannels(mixRatio)
   }
 }
 
@@ -185,54 +305,25 @@ const copyPixels = (context) => {
   context.drawImage(renderer.domElement, 0, 0, rendererWidth, rendererHeight)
 }
 
-export const saveSequence = () => {
-  remote.dialog.showOpenDialog({
-    properties: ['openDirectory'],
-  },
-    path => {
-      if (path) {
-        beginSaveSequence(path)
-      }
-    })
-}
+export const render = (mixRatio, viewerMode, deltaIn) => {
+  delta = deltaIn
 
-export const beginSaveSequence = () => {
-  const settings = store.getState().exportSettings
-  save = {
-    path: settings.gifPath + '\\' + settings.gifName, // path.toString();
-    name: settings.gifName,
-    count: settings.gifFrames,
-    prewarm: settings.gifWarmup,
-    batch: settings.gifGenerate,
-    batchIndex: 0,
-    index: 0,
-  }
-  if (!fs.existsSync(save.path)) {
-    fs.mkdirSync(save.path)
-  }
-  store.dispatch(settingsUpdate({ clockGenerated: false, aspectW: settings.gifWidth, aspectH: settings.gifHeight }))
-  setSize(settings.gifWidth)
-  store.dispatch(clockReset())
-  store.dispatch(clockPulse())
-}
-
-export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
-  quadScene.material.uniforms.mixRatio.value = mixRatio
+  // mixState helps with performance. If mixer is all the way to A or B
+  // we can stop rendering of opposite channel
   let mixState = 'mix'
-  /* always using mix, a bug in my post effects causes slowdown if this is not the case
-    if (mixRatio === 0) {
-      mixState = 'A'
-    } else if (mixRatio === 1) {
-      mixState = 'B'
-    }*/
+  if (mixRatio === 0) {
+    mixState = 'A'
+  } else if (mixRatio === 1) {
+    mixState = 'B'
+  }
 
   if (!isSendingOutput) {
     // Always using dom element when not outputting
     if (previewCanvas) previewCanvas.style.display = 'none'
     if (viewerMode === 'mix') {
-      renderLogic(sceneA, sceneB, mixState)
+      renderLogic(mixState, mixRatio)
     } else {
-      renderLogic(sceneA, sceneB, viewerMode)
+      renderLogic(viewerMode, mixRatio)
     }
   } else {
     // When outputting, need the preview canvas
@@ -242,7 +333,7 @@ export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
       // No need for output canvas
       outputCanvas.style.display = 'none'
       // Render the correct thing
-      renderLogic(sceneA, sceneB, mixState)
+      renderLogic(mixState, mixRatio)
       // Copy pixels to preview
       copyPixels(previewContext)
     } else {
@@ -251,58 +342,103 @@ export const render = (sceneA, sceneB, mixRatio, viewerMode) => {
       outputCanvas.style.display = 'block'
 
       // Render for output
-      renderLogic(sceneA, sceneB, mixState)
+      renderLogic(mixState, mixRatio)
       // Copy pixels to output canvas
       copyPixels(outputContext)
       // Render for preview
-      renderLogic(sceneA, sceneB, viewerMode)
+      renderLogic(viewerMode, mixRatio)
       // Copy pixels to preview canvas
       copyPixels(previewContext)
     }
   }
-
   if (save && save.path) {
-    if (save.prewarm > 0) {
-      save.prewarm--
-    } else {
-      let num = save.index + ''
-      let numberLength = save.count.toString().length
-      while (num.length < numberLength) { num = '0' + num }
-      let path = save.path + '\\' + save.name + num + '.png'
+    doSaveStep()
+  }
+}
 
-      let data = domEl.toDataURL('image/png')
-      data = data.slice(data.indexOf(',') + 1)// .replace(/\s/g,'+');
-      let buffer = new Buffer(data, 'base64')
-      fs.writeFileSync(path, buffer, (e) => { if (e) console.log(e); save.index++ })
-      save.index++
-      if (save.index >= save.count) {
-        let convertName = save.name
-        if (save.batch > 1) { convertName += '_' + save.batchIndex }
+const doSaveStep = () => {
+  if (save.prewarm > 0) {
+    save.prewarm--
+  } else {
+    let num = save.index + ''
+    let numberLength = save.count.toString().length
+    while (num.length < numberLength) { num = '0' + num }
+    let path = _path.normalize(save.path + _path.sep + save.name + num + '.png')
 
-        child_process.execSync('gif.py ' + convertName + ' -cwd ' + save.name + ' -v -g', { cwd: save.path })
+    let data = domEl.toDataURL('image/png')
+    data = data.slice(data.indexOf(',') + 1)// .replace(/\s/g,'+');
+    let buffer = new Buffer(data, 'base64')
+    fs.writeFileSync(path, buffer, (e) => { if (e) window.console.log(e); save.index++ })
+    save.index++
+    if (save.index >= save.count) {
+      // let convertName = save.name
+      // if (save.batch > 1) { convertName += '_' + save.batchIndex }
 
-        fs.writeFileSync(save.path + '\\' + convertName + '_cover.png', buffer, (e) => { if (e) console.log(e) })
+      // TODO: replace with contents of gif.py
+      // childProcess.execSync('gif.py ' + convertName + ' -cwd ' + save.name + ' -v -g', { cwd: save.path })
 
-        // ------ Call All randomize fuinctions
-        let keys = Object.keys(store.getState().sketches)
-        for (let i = 0; i < keys.length; i++) {
-          fireShot(keys[i], 'randomize')
-        }
+      // TODO: add space for custom post png execution in settings
+      // fs.writeFileSync(save.path + '\\' + convertName + '_cover.png', buffer, (e) => { if (e) console.log(e) })
 
-        save.batchIndex++
-        if (save.batchIndex < save.batch) {
-          const settings = store.getState().exportSettings
-          save.name = settings.gifName
-          save.index = 0
-          save.prewarm = settings.gifWarmup
-          store.dispatch(clockReset())
-        } else {
-          save.path = null
-          store.dispatch(settingsUpdate({ clockGenerated: true }))
-          setSize()
-        }
+      // ------ Call All randomize functions
+      let keys = Object.keys(store.getState().sketches)
+      for (let i = 0; i < keys.length; i++) {
+        engine.fireShot(keys[i], 'randomize')
+      }
+
+      save.batchIndex++
+      if (save.batchIndex < save.batch) {
+        const settings = store.getState().exportSettings
+        save.name = settings.gifName
+        save.index = 0
+        save.prewarm = settings.gifWarmup
+        store.dispatch(clockReset())
+      } else {
+        save = null
+        store.dispatch(settingsUpdate({ clockGenerated: true, aspectW: 16, aspectH: 9 }))
+        setSize()
       }
     }
-    store.dispatch(clockPulse())
   }
+  store.dispatch(clockPulse())
+}
+
+export const saveSequence = () => {
+  remote.dialog.showOpenDialog({
+    properties: ['openDirectory'],
+  },
+  path => {
+    if (path) {
+      beginSaveSequence(path)
+    }
+  })
+}
+
+// TODO: maybe this ~ replacement actually works on windows too?
+const normalizePath = (path) => {
+  if (path[0] === '~') {
+    path = _path.join(process.env.HOME, path.slice(1))
+  }
+  return _path.normalize(path)
+}
+
+export const beginSaveSequence = () => {
+  const settings = store.getState().exportSettings
+  save = {
+    path: normalizePath(settings.gifPath + _path.sep + settings.gifName),
+    name: settings.gifName,
+    count: settings.gifFrames,
+    prewarm: settings.gifWarmup,
+    batch: settings.gifGenerate,
+    batchIndex: 0,
+    index: 0,
+  }
+  // Create directory if it does not exist
+  if (!fs.existsSync(save.path)) {
+    fs.mkdirSync(save.path, { recursive: true })
+  }
+  store.dispatch(settingsUpdate({ clockGenerated: false, aspectW: settings.gifWidth, aspectH: settings.gifHeight }))
+  setSize(settings.gifWidth)
+  store.dispatch(clockReset())
+  store.dispatch(clockPulse())
 }

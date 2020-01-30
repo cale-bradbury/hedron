@@ -13,10 +13,9 @@ const mapStateToProps = (state, ownProps) => ({
 const mapDispatchToProps = (dispatch, ownProps) => ({
   onChange: (values) => {
     dispatch(exportSettingsUpdate(values))
-    // uiEventEmitter.emit('repaint')
+    uiEventEmitter.emit('repaint')
   },
   onSaveClick: () => {
-    console.log(ownProps)
     beginSaveSequence(ownProps.gifPath + '\\' + ownProps.gifName)
   },
 })

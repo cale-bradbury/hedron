@@ -1,8 +1,10 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import Button from '../Button'
-import InputLinkMidiControl from '../../containers/InputLinkMidiControl'
+import { useStore } from 'react-redux'
+import getClockData from '../../selectors/getClockData'
+import useRaf from '../../utils/customReactHooks/useRaf'
 
 const Wrapper = styled.div`
   height: 48px;
@@ -34,36 +36,46 @@ const Bottom = styled.div`
   margin-bottom: 0.25rem;
 `
 
-const Item = ({ title, onClick, linkableActionId, color }) =>
-  <Col>
-    <Button onClick={onClick} color={color}>{title}</Button>
-    <InputLinkMidiControl linkableActionId={linkableActionId} />
-  </Col>
+// Optimised component as it is being updated every beat
+const ClockData = () => {
+  const store = useStore()
+  const topEl = useRef()
+  const bottomEl = useRef()
+  const prevBeat = useRef()
 
-const Clock = ({ beat, bar, phrase, bpm, onResetClick, onTapTempoClick, onTapTempoId }) => (
+  useRaf(() => {
+    const data = getClockData(store.getState())
+    const { beat, bar, phrase, bpm } = data
+
+    if (beat === prevBeat.current) return
+
+    topEl.current.innerText = `${beat} - ${bar} - ${phrase}`
+    bottomEl.current.innerText = bpm
+
+    prevBeat.current = beat
+  })
+
+  return (
+    <>
+      <Top ref={topEl} />
+      <Bottom ref={bottomEl} />
+    </>
+  )
+}
+
+const Clock = ({ onResetClick, onTapTempoClick }) => (
   <Wrapper>
     <Col>
-      <Top>{beat} - {bar} - {phrase}</Top>
-      <Bottom>{bpm}</Bottom>
-      <Button onMouseDown={(e)=>{
-                            e.stopPropagation(); 
-                            onResetClick()
-                          }}>Reset</Button>
+      <ClockData />
+      <Button onMouseDown={onResetClick}>Reset</Button>
     </Col>
     <Col>
-      <TapButton onMouseDown={(e)=>{
-                              e.stopPropagation(); 
-                              onTapTempoClick();
-                             }}>Tap<br />Tempo</TapButton>
+      <TapButton onMouseDown={onTapTempoClick}>Tap<br />Tempo</TapButton>
     </Col>
   </Wrapper>
 )
 
 Clock.propTypes = {
-  beat: PropTypes.number.isRequired,
-  bar: PropTypes.number.isRequired,
-  phrase: PropTypes.number.isRequired,
-  bpm: PropTypes.number,
   onResetClick: PropTypes.func.isRequired,
   onTapTempoClick: PropTypes.func.isRequired,
 }

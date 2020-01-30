@@ -5,7 +5,7 @@ const defaultState = {
   gifWarmup: 0,
   gifGenerate: 1,
   gifName: 'gifName',
-  gifPath: 'C:\\Gif',
+  gifPath: '~/gif',
 }
 
 const exportSettingsReducer = (state = defaultState, action) => {
