@@ -1,4 +1,4 @@
-export function settingsUpdate (items) {
+export function settingsUpdate(items) {
   return {
     type: 'SETTINGS_UPDATE',
     payload: { items },

@@ -41,6 +41,11 @@ const projectMenu = {
       click: () => { onClick('project-settings') },
       accelerator: 'CommandOrControl+,',
     },
+    {
+      label: 'Shadertoy Import',
+      click: () => { onClick('import-shadertoy') },
+      accelerator: 'CommandOrControl+Q',
+    },
   ],
 }
 

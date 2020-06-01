@@ -6,6 +6,7 @@ import inputLinkListener from './inputLinks/listener'
 import animListener from './anims/listener'
 import engineListener from '../engine/listener'
 import fileWatchListener from '../fileWatch/listener'
+import wizardListener from '../wizards/listener'
 import projectListener from './project/listener'
 
 import { projectError } from './project/actions'
@@ -23,6 +24,7 @@ export default {
       engineListener(action, store)
       animListener(action, store)
       fileWatchListener(action, store)
+      wizardListener(action, store)
       await projectListener(action, store)
     } catch (error) {
       const state = store.getState()
