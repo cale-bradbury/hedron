@@ -9,7 +9,7 @@ import * as engine from './'
 import getScenes from '../selectors/getScenes'
 
 // EXPORT STUFF
-import { rClockReset } from '../store/clock/actions'
+import { clockPulse, rClockReset } from '../store/clock/actions'
 import { exportSettingsUpdate } from '../store/exportSettings/actions'
 let fs = require('fs')
 let childProcess = require('child_process')
