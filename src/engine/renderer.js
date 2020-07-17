@@ -381,10 +381,12 @@ const doSaveStep = () => {
       // fs.writeFileSync(save.path + '\\' + convertName + '_cover.png', buffer, (e) => { if (e) console.log(e) })
 
       // ------ Call All randomize functions
-      let keys = Object.keys(store.getState().sketches)
-      for (let i = 0; i < keys.length; i++) {
-        engine.fireShot(keys[i], 'randomize')
-      }
+      // TODO : bust this into a solo listener somewhere, give option to not have it happen on export
+
+      /* let keys = Object.keys(store.getState().sketches)
+       for (let i = 0; i < keys.length; i++) {
+         engine.fireShot(keys[i], 'randomize')
+       }*/
 
       save.batchIndex++
       if (save.batchIndex < save.batch) {
@@ -407,11 +409,11 @@ export const saveSequence = () => {
   remote.dialog.showOpenDialog({
     properties: ['openDirectory'],
   },
-  path => {
-    if (path) {
-      beginSaveSequence(path)
-    }
-  })
+    path => {
+      if (path) {
+        beginSaveSequence(path)
+      }
+    })
 }
 
 // TODO: maybe this ~ replacement actually works on windows too?
