@@ -3,6 +3,20 @@ import { createMainWindow } from './mainWindow'
 import { updateMenu } from './menu'
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
+// The following is to allow electron dev tools to work on widnows with dark mode enabled
+// Code from the bug report https://github.com/electron/electron/issues/19468#issuecomment-549593139
+const electron = require('electron');
+const path = require('path');
+const fs = require('fs');
+if (process.platform === 'win32') {
+  const DevToolsExtensions = path.join(electron.app.getPath('userData'), 'DevTools Extensions')
+  try {
+    fs.unlinkSync(DevToolsExtensions)
+  } catch (_) {
+    // noop
+  }
+}
+// End dark mode code
 
 // Create main BrowserWindow when electron is ready
 app.on('ready', () => {
