@@ -4,6 +4,7 @@ import CurrentScene from '../CurrentScene'
 import Macros from '../../containers/Macros'
 import Settings from '../../containers/Settings'
 import ExportSettings from '../../containers/ExportSettings'
+import ShadertoyImport from '../../containers/ShadertoyImport'
 import Overview from '../Overview'
 import { Route } from 'react-router'
 import styled from 'styled-components'
@@ -58,6 +59,7 @@ const App = ({ stats, leftWidth, onLeftDrag, onWrapperClick, sketchId, macroId }
         <Route path='/macros' component={Macros} />
         <Route path='/settings' component={Settings} />
         <Route path='/exportSettings' component={ExportSettings} />
+        <Route path='/shadertoy' component={ShadertoyImport} />
       </MainViewOuter>
 
       <Route path='/scenes' render={() => <ParamPropertiesPanel sketchId={sketchId} />} />

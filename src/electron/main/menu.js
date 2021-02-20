@@ -46,6 +46,11 @@ const projectMenu = {
       click: () => { onClick('project-export-render') },
       accelerator: 'CommandOrControl+m',
     },
+    {
+      label: 'Shadertoy Import',
+      click: () => { onClick('import-shadertoy') },
+      accelerator: 'CommandOrControl+Q',
+    },
   ],
 }
 

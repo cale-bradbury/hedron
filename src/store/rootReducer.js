@@ -20,6 +20,7 @@ import macroReducer from './macros/reducer'
 import uiReducer from './ui/reducer'
 import settingsReducer from './settings/reducer'
 import exportSettingsReducer from './exportSettings/reducer'
+import wizardsReducer from '../wizards/reducer'
 
 const ignoreList = [
   'CLOCK_PULSE', 'CLOCK_BEAT_INC',
@@ -44,6 +45,7 @@ const reducers = combineReducers({
   router: ignoreActions(connectRouter(history), ignoreList),
   settings: ignoreActions(settingsReducer, ignoreList),
   exportSettings: ignoreActions(exportSettingsReducer, ignoreList),
+  wizards: ignoreActions(wizardsReducer, ignoreList),
   form: ignoreActions(formReducer, ignoreList),
 })
 

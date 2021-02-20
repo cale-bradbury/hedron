@@ -26,6 +26,9 @@ ipcRenderer.on('app-menu-click', (e, id, ...args) => {
     case 'project-export-render':
       history.push('/exportSettings')
       break
+    case 'import-shadertoy':
+      history.push('/shadertoy')
+      break
     case 'hedron-about':
       dispatch(uiAuxToggleOpen('aboutHedron'))
       break
