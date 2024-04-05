@@ -10,7 +10,7 @@ import getScenes from '../selectors/getScenes'
 
 // EXPORT STUFF
 import { clockPulse, clockReset } from '../store/clock/actions'
-import { settingsUpdate } from '../store/settings/actions'
+import { rSettingsUpdate } from '../store/settings/actions'
 let fs = require('fs')
 let childProcess = require('child_process')
 const _path = require('path')
@@ -365,8 +365,7 @@ const doSaveStep = () => {
     save.prewarm--
   } else {
     let num = save.index + ''
-    let numberLength = save.count.toString().length
-    while (num.length < numberLength) { num = '0' + num }
+    while (num.length < save.numberLength) { num = '0' + num }
     let path = _path.normalize(save.path + _path.sep + save.name + num + '.png')
 
     let data = domEl.toDataURL('image/png')
@@ -393,13 +392,13 @@ const doSaveStep = () => {
       save.batchIndex++
       if (save.batchIndex < save.batch) {
         const settings = store.getState().exportSettings
-        save.name = settings.gifName
+        save.name = settings.gifName + save.batchIndex
         save.index = 0
         save.prewarm = settings.gifWarmup
         store.dispatch(clockReset())
       } else {
         save = null
-        store.dispatch(settingsUpdate({ clockGenerated: true, aspectW: 16, aspectH: 9 }))
+        store.dispatch(rSettingsUpdate({ clockGenerated: true, aspectW: 16, aspectH: 9 }))
         setSize()
       }
     }
@@ -411,11 +410,11 @@ export const saveSequence = () => {
   remote.dialog.showOpenDialog({
     properties: ['openDirectory'],
   },
-  path => {
-    if (path) {
-      beginSaveSequence(path)
-    }
-  })
+    path => {
+      if (path) {
+        beginSaveSequence(path)
+      }
+    })
 }
 
 // TODO: maybe this ~ replacement actually works on windows too?
@@ -431,17 +430,19 @@ export const beginSaveSequence = () => {
   save = {
     path: normalizePath(settings.gifPath + _path.sep + settings.gifName),
     name: settings.gifName,
-    count: settings.gifFrames,
-    prewarm: settings.gifWarmup,
+    count: (settings.gifBeats * (60 / settings.gifBPM)) * settings.gifFPS,
+    numberLength: ((settings.gifBeats * (60 / settings.gifBPM)) * settings.gifFPS + '').length,
+    prewarm: (settings.gifWarmup * (60 / settings.gifBPM)) * settings.gifFPS,
     batch: settings.gifGenerate,
     batchIndex: 0,
     index: 0,
   }
+  console.error(save);
   // Create directory if it does not exist
   if (!fs.existsSync(save.path)) {
     fs.mkdirSync(save.path, { recursive: true })
   }
-  store.dispatch(settingsUpdate({ clockGenerated: false, aspectW: settings.gifWidth, aspectH: settings.gifHeight }))
+  store.dispatch(rSettingsUpdate({ clockGenerated: false, aspectW: settings.gifWidth, aspectH: settings.gifHeight }))
   setSize(settings.gifWidth)
   store.dispatch(clockReset())
   store.dispatch(clockPulse())

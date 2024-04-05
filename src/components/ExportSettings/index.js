@@ -19,10 +19,13 @@ const ExportSettings = ({ onSaveClick }) => (
       <h2>Gif :)</h2>
       <Row>
         <Col width='8rem'>
-          <Input name='gifFrames' label='Frames' type='number' />
+          <Input name='gifBeats' label='BeatsPerLoop' type='number' />
         </Col>
         <Col width='8rem'>
-          <Input name='gifWarmup' label='Warmup Frames' type='number' />
+          <Input name='gifFPS' label='FPS' type='number' />
+        </Col>
+        <Col width='8rem'>
+          <Input name='gifWarmup' label='Warmup Beats' type='number' />
         </Col>
       </Row>
       <Row>
