@@ -1,7 +1,26 @@
 import AudioAnalyzer from './AudioAnalyzer'
 import { inputFired } from '../store/inputs/actions'
+import { audioUpdateDevices } from '../store/audio/actions'
 
 export default (store) => {
+
+  // Find all audio devices
+  navigator.mediaDevices.enumerateDevices().then((devices) => {
+    const audioDevicesObj = {}
+    devices.forEach((device) => {
+      console.error('device', device)
+      if (device.kind !== 'audioinput') return;
+
+      audioDevicesObj[device.deviceId] = {
+        title: device.label,
+        id: device.deviceId,
+      }
+    })
+    store.dispatch(audioUpdateDevices(audioDevicesObj))
+  })
+
+
+
   const gotStream = (stream) => {
     const input = new AudioAnalyzer(stream)
 

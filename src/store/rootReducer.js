@@ -20,6 +20,7 @@ import macroReducer from './macros/reducer'
 import uiReducer from './ui/reducer'
 import settingsReducer from './settings/reducer'
 import wizardsReducer from '../wizards/reducer'
+import audioReducer from './audio/reducer'
 
 const ignoreList = [
   'CLOCK_PULSE', 'CLOCK_BEAT_INC',
@@ -38,6 +39,7 @@ const reducers = combineReducers({
   inputLinks: ignoreActions(inputLinkReducer, ignoreList),
   clock: ignoreActions(clockReducer, difference(ignoreList, ['CLOCK_PULSE', 'CLOCK_BEAT_INC', 'CLOCK_BPM_UPDATE'])),
   midi: ignoreActions(midiReducer, ignoreList),
+  audio: ignoreActions(audioReducer, ignoreList),
   displays: ignoreActions(displaysReducer, ignoreList),
   macros: ignoreActions(macroReducer, ignoreList),
   ui: ignoreActions(uiReducer, ignoreList),
