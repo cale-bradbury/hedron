@@ -8,7 +8,7 @@ const processShadertoy = (store, json) => {
   const current = store.getState().shadertoy;
   store.dispatch(wizardSettingsUpdate({
     shadertoy: {
-      renderpass:json.renderpass,
+      renderpass: json.renderpass,
       id: json.info.id,
       author: json.info.username,
       name: json.info.name,
@@ -50,11 +50,11 @@ const createSketch = (action, store) => {
     source: `https://www.shadertoy.com/api/v1/shaders/${shadertoy.id}?key=ftnKMH`,
     tags: shadertoy.tags,
     description: shadertoy.description,
-    params:shadertoy.params,
+    params: shadertoy.params,
   }
 
   //Add iTime as the first parameter if they don't want to use system time
-  if (!shadertoy.iTimeIsGlobalTime || 1===1) {
+  if (!shadertoy.iTimeIsGlobalTime || 1 === 1) {
     config.params.unshift({
       key: 'iTime',
       title: 'iTime',
@@ -79,10 +79,14 @@ const createSketch = (action, store) => {
   }
   console.log(savePath);
 
-  fs.writeFileSync(path.join(savePath, 'config.js'), `module.exports = ${JSON.stringify(config, null, '\t')}`, (e) => { if (e) window.console.log(e);})
-  
+  fs.writeFileSync(path.join(savePath, 'config.js'), `module.exports = ${JSON.stringify(config, null, '\t')}`, (e) => { if (e) window.console.log(e); })
+
   let baseShader = fs.readFileSync('src/wizards/shader.glsl', 'utf8');
-  let baseSketch = fs.readFileSync('src/wizards/baseSketch.js', 'utf8');
+  let baseSketch;
+  if (wizard.isPost)
+    baseSketch = fs.readFileSync('src/wizards/postSketch.js', 'utf8');
+  else
+    baseSketch = fs.readFileSync('src/wizards/baseSketch.js', 'utf8');
 
   for (let i = 0; i < shadertoy.renderpass.length; i++) {
     const element = shadertoy.renderpass[i];
@@ -91,6 +95,7 @@ const createSketch = (action, store) => {
 
   let shaderCode = shadertoy.renderpass[0].code;
   shaderCode = shaderCode.replace('mainImage', 'mainShadertoy');
+  shaderCode = shaderCode.replace(/texture\(/g, 'texture2D(');
   shaderCode = baseShader.replace(/##SHADER##/g, shaderCode);
   fs.writeFileSync(path.join(savePath, 'frag.glsl'), shaderCode)
 

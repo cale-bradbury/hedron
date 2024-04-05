@@ -1,6 +1,9 @@
 
 uniform vec2 iResolution;
+uniform vec2 iMouse;
 uniform float iTime;
+uniform sampler2D iChannel0;
+
 
 ##SHADER##
 

@@ -4,8 +4,8 @@
  */
 
 const { THREE, postprocessing, glslify } = window.HEDRON.dependencies
-const { EffectPass, Effect, BlendFunction } = postprocessing
-const { Uniform } = THREE
+const { EffectPass, SavePass, TextureEffect, Effect, BlendFunction } = postprocessing
+const { Uniform, Texture } = THREE
 const frag = glslify.file('./frag.glsl')
 
 class ShadertoyEffect extends Effect {
@@ -18,6 +18,7 @@ class ShadertoyEffect extends Effect {
                 ['iTime', new Uniform(0)],
                 ['iResolution', new Uniform(new THREE.Vector2(100, 100))],
                 ['iMouse', new Uniform(new THREE.Vector2(0, 0))],
+                ['iChannel0', new Uniform(Texture)],
             ]),
         })
     }
@@ -28,7 +29,14 @@ class ##SHADER_NAME## {
     initiatePostProcessing() {
         this.shadertoyEffect = new ShadertoyEffect()
         this.shadertoyPass = new EffectPass(null, this.shadertoyEffect)
-        return [this.shadertoyPass]
+        this.savePass = new SavePass();
+        this.shadertoyEffect.uniforms.get('iChannel0').value = this.savePass.renderTarget.texture
+        const textureEffect = new TextureEffect({
+            texture: this.savePass.renderTarget.texture,
+        })
+
+        this.texturePass = new EffectPass(null, textureEffect)
+        return [this.savePass, this.texturePass, this.shadertoyPass]
     }
 
     update({ params, elapsedTimeMs }) {

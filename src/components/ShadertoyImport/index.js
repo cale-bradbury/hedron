@@ -22,10 +22,10 @@ const renderShader = (shader, createSketch) => (
     <h2>{shader.name}</h2>
     <Row><Col width='2rem'>author:</Col><Col width='8rem'>{shader.author}</Col></Row>
     <Row><Col width='2rem'>description:</Col><Col width='8rem'><Description>{shader.description}</Description></Col></Row>
-    <br/>
+    <br />
     <h2>Import Config</h2>
     <Input name='isPost' label='Import as post effect?' type='checkbox' />
-    <Input name='iTimeIsGlobalTime' label='iTime as global time ☒ or parameter ☐' type='checkbox' onChange />
+    <Input name='iTimeIsGlobalTime' label='iTime as global time ☒ or parameter ☐' type='checkbox' />
     <br />
     <Button onClick={createSketch}>Create Sketch</Button>
   </div>
@@ -46,7 +46,7 @@ const ShadertoyImport = ({ getShadertoy, createSketch, shader }) => (
           <Button onClick={getShadertoy}>Retrieve</Button>
         </Col>
       </Row>
-      { shader &&  renderShader(shader, createSketch) }
+      {shader && renderShader(shader, createSketch)}
     </form>
   </Wrapper>
 )
@@ -54,7 +54,7 @@ const ShadertoyImport = ({ getShadertoy, createSketch, shader }) => (
 ShadertoyImport.propTypes = {
   getShadertoy: PropTypes.func.isRequired,
   createSketch: PropTypes.func.isRequired,
-  shader:PropTypes.object,
+  shader: PropTypes.object,
 }
 
 export default ShadertoyImport
