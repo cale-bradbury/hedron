@@ -97,8 +97,3 @@ export const initiateClock = (injectedStore) => {
   store = injectedStore
   clockReset()
 }
-
-export function* tapTempo() {
-  tap()
-  clockSnap()
-}

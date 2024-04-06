@@ -36,9 +36,3 @@ export function clockSnap () {
     type: 'CLOCK_SNAP',
   }
 }
-
-export function tapTempo () {
-  return {
-    type: 'TAP_TEMPO',
-  }
-}
