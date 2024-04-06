@@ -1,5 +1,6 @@
 import uid from 'uid'
 import { uSceneSelectChannel, sceneClearChannel } from './actions'
+import { randomizeAll } from '../../engine/actions'
 
 export const generateSceneLinkableActionIds = id => ({
   addToA: {
@@ -21,6 +22,11 @@ export const generateSceneLinkableActionIds = id => ({
     action: uSceneSelectChannel(id, 'opposite'),
     id: uid(),
     title: 'Add to Opposite',
+  },
+  randomize: {
+    action: randomizeAll(),
+    id: uid(),
+    title: 'Randomize Values',
   },
   clear: {
     action: sceneClearChannel(id),
