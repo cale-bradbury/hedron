@@ -1,8 +1,9 @@
-export function clockPulse () {
+export function clockPulse() {
   return {
     type: 'CLOCK_PULSE',
   }
 }
+
 
 export function clockBeatInc () {
   return {
@@ -19,9 +20,15 @@ export function clockBpmUpdate (bpm) {
   }
 }
 
-export function clockReset () {
+export function uClockReset () {
   return {
-    type: 'CLOCK_RESET',
+    type: 'U_CLOCK_RESET',
+  }
+}
+
+export function rClockReset () {
+  return {
+    type: 'R_CLOCK_RESET',
   }
 }
 

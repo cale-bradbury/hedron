@@ -8,6 +8,9 @@ import settingsListener from './settings/listener'
 import engineListener from '../engine/listener'
 import fileWatchListener from '../fileWatch/listener'
 import projectListener from './project/listener'
+import windowListener from './windows/listener'
+import clockListener from './clock/listener'
+import macrosListener from './macros/listener'
 
 import { projectError } from './project/actions'
 
@@ -25,6 +28,9 @@ export default {
       animListener(action, store)
       fileWatchListener(action, store)
       settingsListener(action, store)
+      windowListener(action, store)
+      clockListener(action, store)
+      macrosListener(action, store)
       await projectListener(action, store)
     } catch (error) {
       const state = store.getState()

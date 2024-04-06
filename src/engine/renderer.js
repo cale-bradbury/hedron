@@ -9,8 +9,8 @@ import * as engine from './'
 import getScenes from '../selectors/getScenes'
 
 // EXPORT STUFF
-import { clockPulse, clockReset } from '../store/clock/actions'
-import { settingsUpdate } from '../store/settings/actions'
+import { rClockReset } from '../store/clock/actions'
+import { exportSettingsUpdate } from '../store/exportSettings/actions'
 let fs = require('fs')
 let childProcess = require('child_process')
 const _path = require('path')
@@ -396,10 +396,10 @@ const doSaveStep = () => {
         save.name = settings.gifName
         save.index = 0
         save.prewarm = settings.gifWarmup
-        store.dispatch(clockReset())
+        store.dispatch(rClockReset())
       } else {
         save = null
-        store.dispatch(settingsUpdate({ clockGenerated: true, aspectW: 16, aspectH: 9 }))
+        store.dispatch(exportSettingsUpdate({ clockGenerated: true, aspectW: 16, aspectH: 9 }))
         setSize()
       }
     }
@@ -441,8 +441,8 @@ export const beginSaveSequence = () => {
   if (!fs.existsSync(save.path)) {
     fs.mkdirSync(save.path, { recursive: true })
   }
-  store.dispatch(settingsUpdate({ clockGenerated: false, aspectW: settings.gifWidth, aspectH: settings.gifHeight }))
+  store.dispatch(exportSettingsUpdate({ clockGenerated: false, aspectW: settings.gifWidth, aspectH: settings.gifHeight }))
   setSize(settings.gifWidth)
-  store.dispatch(clockReset())
+  store.dispatch(rClockReset())
   store.dispatch(clockPulse())
 }
