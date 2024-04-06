@@ -163,7 +163,7 @@ class Param extends React.Component {
     }
   }
 
-  onKeyPress = (e) => {
+  onKeyDown = (e) => {
     if (e.key === 'Enter') {
       this.props.onChange(e.target.value)
     }
@@ -185,7 +185,7 @@ class Param extends React.Component {
                     <BarCol>
                       <input
                         type='text'
-                        onKeyPress={this.onKeyPress}
+                        onKeyDown={this.onKeyDown}
                       />
                     </BarCol>
                     <Info>{title}</Info>

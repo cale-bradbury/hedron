@@ -34,27 +34,21 @@ const Bottom = styled.div`
   margin-bottom: 0.25rem;
 `
 
-const Item = ({ title, onClick, linkableActionId, color }) =>
-  <Col>
-    <Button onClick={onClick} color={color}>{title}</Button>
-    <InputLinkMidiControl linkableActionId={linkableActionId} />
-  </Col>
-
-const Clock = ({ beat, bar, phrase, bpm, onResetClick, onTapTempoClick, onTapTempoId }) => (
+const Clock = ({ beat, bar, phrase, bpm, onResetClick, onTapTempoClick }) => (
   <Wrapper>
     <Col>
       <Top>{beat} - {bar} - {phrase}</Top>
       <Bottom>{bpm}</Bottom>
-      <Button onMouseDown={(e)=>{
-                            e.stopPropagation(); 
-                            onResetClick()
-                          }}>Reset</Button>
+      <Button onMouseDown={(e) => {
+        e.stopPropagation();
+        onResetClick()
+      }}>Reset</Button>
     </Col>
     <Col>
-      <TapButton onMouseDown={(e)=>{
-                              e.stopPropagation(); 
-                              onTapTempoClick();
-                             }}>Tap<br />Tempo</TapButton>
+      <TapButton onMouseDown={(e) => {
+        e.stopPropagation();
+        onTapTempoClick();
+      }}>Tap<br />Tempo</TapButton>
     </Col>
   </Wrapper>
 )
