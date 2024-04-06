@@ -23,12 +23,12 @@ import exportSettingsReducer from './exportSettings/reducer'
 
 const ignoreList = [
   'CLOCK_BEAT_INC', 'CLOCK_BPM_UPDATE', 'INPUT_FIRED',
-  'NODE_VALUE_UPDATE', 'NODE_RANGE_UPDATE', 'NODE_VALUES_BATCH_UPDATE',
+  'NODE_VALUE_UPDATE', 'NODE_VALUES_BATCH_UPDATE',
 ]
 
 const reducers = combineReducers({
   nodes: ignoreActions(nodesReducer, difference(ignoreList,
-    ['NODE_VALUE_UPDATE', 'NODE_RANGE_UPDATE', 'NODE_VALUES_BATCH_UPDATE'])),
+    ['NODE_VALUE_UPDATE', 'NODE_VALUES_BATCH_UPDATE'])),
   availableModules: ignoreActions(availableModulesReducer, ignoreList),
   scenes: ignoreActions(scenesReducer, ignoreList),
   sketches: ignoreActions(sketchesReducer, ignoreList),

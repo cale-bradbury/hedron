@@ -192,16 +192,6 @@ const handleNodeValueUpdate = (action, store) => {
     store.dispatch(projectError(`Failed to process macro: ${error.message}`))
   }
 }
-export function* handleNodeRangeUpdate (action) {
-  const p = action.payload
-  const node = yield select(getNode, p.id)
-  if (p.value.min) {
-    node.min = p.value.min
-  }
-  if (p.value.max) {
-    node.max = p.value.max
-  }
-}
 
 const handleNodeValueBatchUpdate = (action, store) => {
   const state = store.getState()
@@ -286,7 +276,6 @@ const actionMap = {
   'U_MACRO_ADD_ALL_FOR_SKETCH': handleMacroAddAllForSketch,
   'U_MACRO_ADD_ALL_FOR_SCENE': handleMacroAddAllForScene,
   'NODE_VALUE_UPDATE': handleNodeValueUpdate,
-  'NODE_RANGE_UPDATE': handleNodeRangeUpdate,
   'NODE_VALUES_BATCH_UPDATE': handleNodeValueBatchUpdate,
 }
 
