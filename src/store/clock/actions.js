@@ -4,7 +4,6 @@ export function clockPulse() {
   }
 }
 
-
 export function clockBeatInc () {
   return {
     type: 'CLOCK_BEAT_INC',
