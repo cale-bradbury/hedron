@@ -1,4 +1,5 @@
 import * as engine from './'
+import * as renderer from './renderer'
 
 const handleAddScene = (action) => {
   const { sceneId } = action.payload
@@ -24,6 +25,16 @@ export const handleShotFired = (action) => {
   engine.fireShot(action.payload.sketchId, action.payload.method)
 }
 
+export const handleSaveImage = (action) => {
+  renderer.saveSequence()
+}
+export const handleRandomizeAll = (action, store) => {
+  let keys = Object.keys(store.getState().sketches)
+  for (let i = 0; i < keys.length; i++) {
+    engine.fireShot(keys[i], 'randomize')
+  }
+}
+
 export default (action, store) => {
   switch (action.type) {
     case 'ENGINE_SCENE_SKETCH_ADD':
@@ -40,6 +51,12 @@ export default (action, store) => {
       break
     case 'NODE_SHOT_FIRED':
       handleShotFired(action, store)
+      break
+    case 'SAVE_IMAGE':
+      handleSaveImage(action, store)
+      break
+    case 'RANDOMIZE_ALL':
+      handleRandomizeAll(action, store)
       break
   }
 }

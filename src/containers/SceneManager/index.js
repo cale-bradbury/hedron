@@ -7,6 +7,7 @@ import {
 }
   from '../../store/scenes/actions'
 import { uiEditingOpen } from '../../store/ui/actions'
+import { saveImage, randomizeAll } from '../../engine/actions'
 
 const mapStateToProps = (state, ownProps) => ({
   currentScene: getCurrentScene(state),
@@ -31,6 +32,12 @@ const mapDispatchToProps = (dispatch, ownProps) => (
     },
     onChannelClick: (sceneId, channel) => {
       dispatch(uSceneSelectChannel(sceneId, channel))
+    },
+    onSaveClick: () => {
+      dispatch(saveImage({}))
+    },
+    onRandomClick: () => {
+      dispatch(randomizeAll())
     },
   }
 )

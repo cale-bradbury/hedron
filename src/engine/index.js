@@ -257,6 +257,8 @@ export const run = (injectedStore, stats) => {
         sketch = sketches[sketchId]
         const params = getSketchParams(state, sketchId)
         allParams = getSketchParams(state, null, sceneId)
+        if (store.getState().inputs.texture)
+          allParams.audioTexture = store.getState().inputs.texture.value;
         if (sketch.update && !stateScene.settings.globalPostProcessingEnabled) sketch.update({ ...getInfo(), params })
       })
     }

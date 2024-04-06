@@ -4,6 +4,7 @@ import scenesListener from './scenes/listener'
 import sketchesListener from './sketches/listener'
 import inputLinkListener from './inputLinks/listener'
 import animListener from './anims/listener'
+import settingsListener from './settings/listener'
 import engineListener from '../engine/listener'
 import fileWatchListener from '../fileWatch/listener'
 import projectListener from './project/listener'
@@ -16,7 +17,7 @@ import { projectError } from './project/actions'
 export default {
   types: 'all',
 
-  async handleAction (action, dispatched, store) {
+  async handleAction(action, dispatched, store) {
     try {
       inputsListener(action, store)
       nodesListener(action, store)
@@ -26,6 +27,7 @@ export default {
       engineListener(action, store)
       animListener(action, store)
       fileWatchListener(action, store)
+      settingsListener(action, store)
       windowListener(action, store)
       clockListener(action, store)
       macrosListener(action, store)
