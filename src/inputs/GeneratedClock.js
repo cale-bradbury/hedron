@@ -1,5 +1,5 @@
 import tapTempoFunc from 'tap-tempo'
-import { settingsUpdate } from '../store/settings/actions'
+import { rSettingsUpdate } from '../store/settings/actions'
 import { ipcRenderer } from 'electron'
 import { clockUpdate } from '../clock'
 
@@ -61,7 +61,7 @@ export default (injectedStore) => {
   store = injectedStore
 
   tapTempo.on('tempo', (bpm) => {
-    store.dispatch(settingsUpdate({ clockBpm: Math.round(bpm) }))
+    store.dispatch(rSettingsUpdate({ clockBpm: Math.round(bpm) }))
   })
 
   marker = window.performance.now()

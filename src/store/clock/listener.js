@@ -1,4 +1,4 @@
-import { clockReset, clockSnap } from '../../clock'
+import { clockReset, clockSnap, clockUpdate } from '../../clock'
 import { rClockReset } from './actions'
 import { tap } from '../../inputs/GeneratedClock'
 
@@ -19,6 +19,9 @@ export default (action, store) => {
       break
     case 'CLOCK_SNAP':
       handleClockSnap(action, store)
+      break
+    case 'CLOCK_PULSE':
+      clockUpdate()
       break
   }
 }

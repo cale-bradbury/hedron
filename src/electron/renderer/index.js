@@ -44,7 +44,7 @@ if (process.env.NODE_ENV !== 'development') {
   composeEnhancers = composeWithDevTools({
     actionsBlacklist: [
       'CLOCK_BEAT_INC', 'CLOCK_BPM_UPDATE', 'INPUT_FIRED',
-      'NODE_VALUE_UPDATE', 'NODE_RANGE_UPDATE', 'NODE_SHOT_ARM', 'NODE_SHOT_DISARM', 'NODE_SHOT_FIRED',
+      'NODE_VALUE_UPDATE', 'NODE_SHOT_ARM', 'NODE_SHOT_DISARM', 'NODE_SHOT_FIRED',
       'NODE_VALUES_BATCH_UPDATE',
     ],
     maxAge: 10,

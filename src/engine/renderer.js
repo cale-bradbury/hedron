@@ -8,6 +8,16 @@ import * as engine from './'
 
 import getScenes from '../selectors/getScenes'
 
+// EXPORT STUFF
+import { clockPulse, rClockReset } from '../store/clock/actions'
+import { exportSettingsUpdate } from '../store/exportSettings/actions'
+let fs = require('fs')
+let childProcess = require('child_process')
+const _path = require('path')
+import { remote } from 'electron'
+let save
+// END EXPORT STUFF
+
 let store, domEl, outputEl, viewerEl, isSendingOutput, rendererWidth, rendererHeight,
   previewCanvas, previewContext, outputCanvas, outputContext
 
@@ -170,8 +180,10 @@ export const setViewerEl = (el) => {
 export const setSize = () => {
   const settings = store.getState().settings
   let width, ratio
-
-  if (isSendingOutput) {
+  if (save) {
+    width = store.getState().exportSettings.gifWidth
+    ratio = settings.aspectW / settings.aspectH
+  } else if (isSendingOutput) {
     // Get width and ratio from output window
     width = outputEl.offsetWidth
     ratio = width / outputEl.offsetHeight
@@ -343,4 +355,94 @@ export const render = (mixRatio, viewerMode, deltaIn) => {
       copyPixels(previewContext)
     }
   }
+  if (save && save.path) {
+    doSaveStep()
+  }
+}
+
+const doSaveStep = () => {
+  if (save.prewarm > 0) {
+    save.prewarm--
+  } else {
+    let num = save.index + ''
+    let numberLength = save.count.toString().length
+    while (num.length < numberLength) { num = '0' + num }
+    let path = _path.normalize(save.path + _path.sep + save.name + num + '.png')
+
+    let data = domEl.toDataURL('image/png')
+    data = data.slice(data.indexOf(',') + 1)// .replace(/\s/g,'+');
+    let buffer = new Buffer(data, 'base64')
+    fs.writeFileSync(path, buffer, (e) => { if (e) window.console.log(e); save.index++ })
+    save.index++
+    if (save.index >= save.count) {
+      // let convertName = save.name
+      // if (save.batch > 1) { convertName += '_' + save.batchIndex }
+
+      // TODO: replace with contents of gif.py
+      // childProcess.execSync('gif.py ' + convertName + ' -cwd ' + save.name + ' -v -g', { cwd: save.path })
+
+      // TODO: add space for custom post png execution in settings
+      // fs.writeFileSync(save.path + '\\' + convertName + '_cover.png', buffer, (e) => { if (e) console.log(e) })
+
+      // ------ Call All randomize functions
+      let keys = Object.keys(store.getState().sketches)
+      for (let i = 0; i < keys.length; i++) {
+        engine.fireShot(keys[i], 'randomize')
+      }
+
+      save.batchIndex++
+      if (save.batchIndex < save.batch) {
+        const settings = store.getState().exportSettings
+        save.name = settings.gifName
+        save.index = 0
+        save.prewarm = settings.gifWarmup
+        store.dispatch(rClockReset())
+      } else {
+        save = null
+        store.dispatch(exportSettingsUpdate({ clockGenerated: true, aspectW: 16, aspectH: 9 }))
+        setSize()
+      }
+    }
+  }
+  store.dispatch(clockPulse())
+}
+
+export const saveSequence = () => {
+  remote.dialog.showOpenDialog({
+    properties: ['openDirectory'],
+  },
+  path => {
+    if (path) {
+      beginSaveSequence(path)
+    }
+  })
+}
+
+// TODO: maybe this ~ replacement actually works on windows too?
+const normalizePath = (path) => {
+  if (path[0] === '~') {
+    path = _path.join(process.env.HOME, path.slice(1))
+  }
+  return _path.normalize(path)
+}
+
+export const beginSaveSequence = () => {
+  const settings = store.getState().exportSettings
+  save = {
+    path: normalizePath(settings.gifPath + _path.sep + settings.gifName),
+    name: settings.gifName,
+    count: settings.gifFrames,
+    prewarm: settings.gifWarmup,
+    batch: settings.gifGenerate,
+    batchIndex: 0,
+    index: 0,
+  }
+  // Create directory if it does not exist
+  if (!fs.existsSync(save.path)) {
+    fs.mkdirSync(save.path, { recursive: true })
+  }
+  store.dispatch(exportSettingsUpdate({ clockGenerated: false, aspectW: settings.gifWidth, aspectH: settings.gifHeight }))
+  setSize(settings.gifWidth)
+  store.dispatch(rClockReset())
+  store.dispatch(clockPulse())
 }

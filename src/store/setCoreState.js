@@ -38,7 +38,7 @@ const coreNodes = [
     valueType: 'enum',
     value: 'folder',
     id: 'sketchOrganization',
-    options:[
+    options: [
       {
         value: 'folder',
         label: 'Folder',
