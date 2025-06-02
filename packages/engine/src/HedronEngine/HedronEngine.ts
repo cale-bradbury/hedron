@@ -159,7 +159,7 @@ export class HedronEngine {
             debugScene.addPass(pass)
           })
         }
-        instance.update({ deltaFrame: 1, deltaTime, params: paramValues })
+        instance.update({ deltaFrame: 1, deltaTime, params: paramValues, scene: debugScene })
       })
 
       requestAnimationFrame(loop)
