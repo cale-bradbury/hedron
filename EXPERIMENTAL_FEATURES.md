@@ -25,6 +25,8 @@ Plugins are now exposed on `window` so they can be accessed within sketches.
 
 Your best bet in terms of finding what they can do, is to access the object in the developer console and step through the object. Some more useful functions as follows.
 
+!!! Use at your own discression, 'api' may be subject to change, and modifying the wrong things may have unexpected side-effects` !!!
+
 ### Midi
 `window['midi-input'].midiManager` The base class handling the midi i/o.
 `midiManager.devices` - The list of currently connected devices
