@@ -216,4 +216,39 @@ export class MidiManager {
 
     return messageType
   }
+
+  /**
+   * Send a MIDI message to a specific device.
+   * @param device The MIDI input device to send the message to.
+   * @param message The MIDI message to send.
+   */
+  public sendMidiMessage(deviceName: string, message: MIDIEvent): void {
+    if (!this.midiAccess) {
+      console.error('MIDI access not initialized.')
+      return
+    }
+
+    // Find the output device by name
+    const output = Array.from(this.midiAccess.outputs.values()).find(
+      (out) => out.name === deviceName,
+    )
+    if (!output) {
+      console.error(`MIDI output device "${deviceName}" not found.`)
+      return
+    }
+    console.warn(
+      `Sending MIDI message to ${output.name}: ${midiMessageNames[message.type]} Note: ${message.note} Value: ${message.value ?? 0}`,
+    )
+    // Construct the correct status byte
+    let data: Uint8Array
+    if (message.type >= 0xf0) {
+      // System/common message (e.g., clock, start, stop)
+      data = new Uint8Array([message.type])
+    } else {
+      // Channel message (e.g., note on/off, CC)
+      const status = (message.type & 0xf0) | (message.channel & 0x0f)
+      data = new Uint8Array([status, message.note, message.value ?? 0])
+    }
+    output.send(data)
+  }
 }

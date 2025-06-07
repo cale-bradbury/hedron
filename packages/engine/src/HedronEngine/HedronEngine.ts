@@ -38,6 +38,7 @@ export class HedronEngine {
 
   public registerPlugin(plugin: IPlugin) {
     this.plugins[plugin.id] = plugin
+    window[plugin.id] = plugin
   }
 
   public setSketchesUrl(sketchesUrl: string) {
