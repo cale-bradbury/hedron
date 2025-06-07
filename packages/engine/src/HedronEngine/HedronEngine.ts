@@ -37,8 +37,10 @@ export class HedronEngine {
   }
 
   public registerPlugin(plugin: IPlugin) {
-    this.plugins[plugin.id] = plugin
-    window[plugin.id] = plugin
+    const id: string = plugin.id
+    this.plugins[id] = plugin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any)[id] = plugin
   }
 
   public setSketchesUrl(sketchesUrl: string) {
