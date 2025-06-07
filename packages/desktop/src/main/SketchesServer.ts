@@ -73,6 +73,7 @@ export class SketchesServer extends EventEmitter {
         '.glb': 'file',
         '.fbx': 'file',
         '.obj': 'file',
+        '.ply': 'file',
         '.png': 'file',
         '.jpg': 'file',
         '.jpeg': 'file',
