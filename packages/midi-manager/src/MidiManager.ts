@@ -181,6 +181,10 @@ export class MidiManager {
     this.learnPromise = new Promise((resolve) => {
       this.learnResolve = resolve
       this.learnListener = (event: MIDIEvent) => {
+        if (event.type === MidiMessageType.Clock) {
+          // Ignore clock messages during learn
+          return
+        }
         resolve(event)
         this.learnResolve = undefined
         this.cancelMidiLearn()
