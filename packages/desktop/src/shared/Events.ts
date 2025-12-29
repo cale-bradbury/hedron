@@ -38,6 +38,11 @@ export enum FileEvents {
   SaveProject = 'save-project',
 }
 
+export enum SnapshotEvents {
+  SaveThumbnail = 'save-thumbnail',
+  DeleteThumbnail = 'delete-thumbnail',
+}
+
 type ResponseCanceled = {
   result: 'canceled'
 }

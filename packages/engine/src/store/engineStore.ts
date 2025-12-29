@@ -18,6 +18,9 @@ import { createReset } from '@store/actionCreators/reset'
 import { createLoadProject } from '@store/actionCreators/loadProject'
 import { createAddInput } from '@store/actionCreators/createAddInput'
 import { createUpdateSketch } from '@store/actionCreators/updateSketch'
+import { createAddSnapshot } from '@store/actionCreators/addSnapshot'
+import { createDeleteSnapshot } from '@store/actionCreators/deleteSnapshot'
+import { createRestoreSnapshot } from '@store/actionCreators/restoreSnapshot'
 
 export const createEngineStore = () =>
   createStore<EngineStateWithActions>()(
@@ -36,6 +39,9 @@ export const createEngineStore = () =>
           reset: createReset(set),
           loadProject: createLoadProject(set),
           addInput: createAddInput(set),
+          addSnapshot: createAddSnapshot(set),
+          deleteSnapshot: createDeleteSnapshot(set),
+          restoreSnapshot: createRestoreSnapshot(set),
         })),
       ),
     ),

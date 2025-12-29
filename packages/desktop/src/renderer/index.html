@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <title>Electron</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' blob:;" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src * 'unsafe-inline' 'unsafe-eval' blob: hedron-file:; img-src * blob: data: hedron-file:;"
+    />
   </head>
 
   <body>

@@ -8,10 +8,44 @@
 .left {
   flex: 0 0 50%;
   position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.leftTop {
+  flex: 1;
+  overflow: hidden;
 }
 
 .right {
   flex: 1;
+}
+
+.snapshotSection {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #333;
+}
+
+.snapshotToggle {
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.snapshotToggle:hover {
+  background: #252525;
+}
+
+.snapshotContent {
+  height: 200px;
+  overflow: hidden;
 }
 
 .widgetStrip {

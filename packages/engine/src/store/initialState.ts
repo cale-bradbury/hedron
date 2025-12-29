@@ -7,4 +7,5 @@ export const initialState: EngineState = {
   nodeValues: {},
   sketchModules: {},
   inputs: {},
+  snapshots: {},
 }

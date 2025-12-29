@@ -198,11 +198,22 @@ export interface Input {
 
 export type Inputs = { [key: string]: Input }
 
+export interface Snapshot {
+  id: string
+  name: string
+  timestamp: number
+  nodeValues: NodeValues
+  thumbnailPath?: string
+}
+
+export type Snapshots = { [key: string]: Snapshot }
+
 export interface EngineData {
   sketches: Sketches
   nodes: Nodes
   nodeValues: NodeValues
   inputs: Inputs
+  snapshots?: Snapshots
 }
 
 interface AuxState {
@@ -227,6 +238,9 @@ interface Actions {
     inputConfig: Omit<Input, 'id' | 'optionNodeIds'>,
     optionsNodeConfig: InputOptionNodesConfig,
   ) => string
+  addSnapshot: (name: string, thumbnailPath?: string, snapshotId?: string) => string
+  deleteSnapshot: (snapshotId: string) => void
+  restoreSnapshot: (snapshotId: string, durationSeconds?: number) => void
 }
 
 export type EngineStateWithActions = EngineData & AuxState & Actions

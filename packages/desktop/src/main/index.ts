@@ -1,14 +1,18 @@
-import { app, BrowserWindow, dialog, ipcMain, screen, session } from 'electron'
+import fs from 'fs'
+import path from 'path'
+import { app, BrowserWindow, dialog, ipcMain, screen, session, protocol, net } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { REDUX_DEVTOOLS, installExtension } from '@tomjs/electron-devtools-installer'
 import { ProjectData } from '@hedron/app-store'
 import { saveFrameHandler, saveFrameSequenceHandler } from './handlers/frameHandlers'
+import { deleteThumbnailHandler, saveThumbnailHandler } from './handlers/snapshotHandlers'
 import {
   DialogEvents,
   FileEvents,
   OpenProjectResponse,
   SaveProjectResponse,
   SketchEvents,
+  SnapshotEvents,
 } from '@shared/Events'
 import { updateDisplayMenu, updateMenu } from '@main/menu'
 import { createWindow } from '@main/mainWindow'
@@ -18,10 +22,55 @@ import { openProjectFile } from '@main/handlers/openProjectFile'
 import { FrameEvents } from '@shared/FrameEvents'
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
+// Register custom protocol as privileged before app is ready
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'hedron-file',
+    privileges: {
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: false,
+      corsEnabled: false,
+      stream: false,
+    },
+  },
+])
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  // Register protocol for loading local files (thumbnails)
+  protocol.handle('hedron-file', async (request) => {
+    try {
+      const url = request.url.replace('hedron-file://', '')
+      // Decode URL encoding (e.g., %20 -> space)
+      const filePath = decodeURIComponent(url)
+
+      // Read the file directly
+      const data = await fs.promises.readFile(filePath)
+      const ext = path.extname(filePath).toLowerCase()
+
+      // Determine MIME type
+      const mimeTypes: Record<string, string> = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+      }
+
+      const mimeType = mimeTypes[ext] || 'application/octet-stream'
+
+      return new Response(data, {
+        headers: { 'Content-Type': mimeType },
+      })
+    } catch (error) {
+      console.error('Error loading hedron-file:', request.url, error)
+      return new Response('File not found', { status: 404 })
+    }
+  })
+
   updateMenu()
   initiateScreens()
 
@@ -113,3 +162,6 @@ ipcMain.handle(SketchEvents.StartSketchesServer, async (_, sketchesDir: string) 
 
 ipcMain.handle(FrameEvents.SaveFrame, saveFrameHandler)
 ipcMain.handle(FrameEvents.SaveFrameSequence, saveFrameSequenceHandler)
+
+ipcMain.handle(SnapshotEvents.SaveThumbnail, saveThumbnailHandler)
+ipcMain.handle(SnapshotEvents.DeleteThumbnail, deleteThumbnailHandler)

@@ -6,6 +6,7 @@ import {
   SaveProjectResponse,
   SketchesServerResponse,
   SketchEvents,
+  SnapshotEvents,
 } from '@shared/Events'
 
 export const openSketchesDirDialog = () =>
@@ -46,3 +47,22 @@ export const startSketchesServer = (sketchesDirPath: string) =>
         resolve(response)
       })
   })
+
+export const saveThumbnail = (projectPath: string | null, snapshotId: string, dataUrl: string) =>
+  new Promise<string | null>((resolve) => {
+    window.electronApi.ipcRenderer
+      .invoke(SnapshotEvents.SaveThumbnail, projectPath, snapshotId, dataUrl)
+      .then((thumbnailPath) => {
+        resolve(thumbnailPath)
+      })
+  })
+
+export const deleteThumbnail = (projectPath: string | null, thumbnailPath: string) =>
+  new Promise<boolean>((resolve) => {
+    window.electronApi.ipcRenderer
+      .invoke(SnapshotEvents.DeleteThumbnail, projectPath, thumbnailPath)
+      .then((success) => {
+        resolve(success)
+      })
+  })
+
