@@ -8,6 +8,7 @@ import { AudioInput, AudioInputPanel, AudioGlobalPanel } from '@hedron-gl/audio-
 import { TimelineInput, TimelineGlobalPanel, TimelineInputPanel } from '@hedron-gl/timeline'
 import { SceneControlPlugin, SceneControlGlobalPanel } from '@hedron-gl/scene-control'
 import { ParamPresetsPlugin, ParamPresetsPanel } from '@hedron-gl/param-presets'
+import { DmxLightingPlugin, DmxLightingGlobalPanel } from '@hedron-gl/dmx-lighting'
 
 export const performanceMonitor = new Stats()
 
@@ -32,6 +33,8 @@ engine.registerPlugin(new TimelineInput())
 engine.registerPlugin(new SceneControlPlugin())
 engine.registerPlugin(new ParamPresetsPlugin())
 
+engine.registerPlugin(new DmxLightingPlugin(engine))
+
 export const pluginViews = {
   inputPanel: {
     midi: MidiInputPanel,
@@ -46,6 +49,7 @@ export const pluginViews = {
     ['midi-input']: MidiGlobalPanel,
     ['timeline-input']: TimelineGlobalPanel,
     ['scene-control']: SceneControlGlobalPanel,
+    ['dmx-lighting']: DmxLightingGlobalPanel,
   },
   sketchCollapsible: {
     ['param-presets']: ParamPresetsPanel,
