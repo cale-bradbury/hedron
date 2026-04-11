@@ -405,7 +405,7 @@ export class AudioAnalyzer {
   /**
    * Processes the full frequency spectrum for visualization
    */
-  private processFullSpectrum(): void {
+  public processFullSpectrum(): void {
     if (!this.audioData) return
 
     // Process each frequency in the spectrum
@@ -460,7 +460,7 @@ export class AudioAnalyzer {
    * Processes audio data into frequency bands using band-pass filters
    * Applies a bell curve filter to the frequency spectrum for each band
    */
-  private processBands(): void {
+  public processBands(): void {
     if (!this.audioData) return
 
     const binCount = this.audioData.freqs.length

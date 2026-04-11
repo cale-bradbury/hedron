@@ -32,6 +32,12 @@ export class AudioInput implements IPlugin {
   ]
   public readonly globalOptionNodesConfig = [
     {
+      key: 'manualMode',
+      title: 'Manual Mode',
+      valueType: 'boolean',
+      defaultValue: false,
+    },
+    {
       key: 'masterVolume',
       title: 'Master Volume',
       valueType: 'number',
@@ -170,6 +176,11 @@ export class AudioInput implements IPlugin {
    * Audio analyzer that processes audio data into frequency bands
    */
   public analyzer: AudioAnalyzer
+
+  /**
+   * Name of the external source controlling manual mode (if any)
+   */
+  public manualModeSource: string | null = null
 
   /**
    * Reference to the engine's state store
@@ -333,6 +344,17 @@ export class AudioInput implements IPlugin {
   }
 
   /**
+   * Gets the manual mode value from the global options
+   * @returns Manual mode value (default: false)
+   */
+  private getManualMode(): boolean {
+    const storeState = this._store.getState()
+    const nodeId = `${AudioInput.ID}-global-manualMode`
+    const value = storeState.nodeValues[nodeId] as boolean | undefined
+    return value ?? false
+  }
+
+  /**
    * Gets the master volume value from the global options
    * @returns Master volume value (default: 1.0)
    */
@@ -479,13 +501,66 @@ export class AudioInput implements IPlugin {
   }
 
   /**
-   * Updates audio analysis on each frame
-   * @returns The current levels data array
+   * Sets manual mode and tracks the source controlling it
+   * @param sourceName Name of the external source (e.g., sketch name)
    */
-  public update() {
-    if (!this.audioData) return
+  public setManualMode(sourceName: string): void {
+    const storeState = this._store.getState()
+    const nodeId = `${AudioInput.ID}-global-manualMode`
+    storeState.updateNodeValue(nodeId, true)
+    this.manualModeSource = sourceName
+    if (AudioInput.ENABLE_LOGGING) {
+      console.log(`[AudioInput] Manual mode enabled by: ${sourceName}`)
+    }
+  }
 
-    // Set all analyzer properties from global options
+  /**
+   * Disables manual mode and clears the source
+   */
+  public disableManualMode(): void {
+    const storeState = this._store.getState()
+    const nodeId = `${AudioInput.ID}-global-manualMode`
+    storeState.updateNodeValue(nodeId, false)
+    this.manualModeSource = null
+    if (AudioInput.ENABLE_LOGGING) {
+      console.log('[AudioInput] Manual mode disabled')
+    }
+  }
+
+  /**
+   * Processes manually provided audio data (for non-realtime rendering)
+   * Call this method each frame when in manual mode with the audio frequency data
+   * @param freqs Raw frequency data as Uint8Array (typically 256 bytes)
+   */
+  public processManualAudioData(freqs: Uint8Array): void {
+    if (!this.audioData) {
+      console.warn('[AudioInput] Cannot process manual audio data - audio system not initialized')
+      return
+    }
+
+    if (!this.getManualMode()) {
+      console.warn(
+        '[AudioInput] Manual mode is not enabled. Enable manual mode to use this method.',
+      )
+      return
+    }
+
+    // Copy the provided data into the analyzer's frequency array
+    this.audioData.freqs.set(freqs.slice(0, this.audioData.freqs.length))
+
+    // Update analyzer settings and process the data
+    this.syncAnalyzerSettings()
+    this.analyzer.processBands()
+    this.analyzer.processFullSpectrum()
+
+    // Update nodes based on new audio levels
+    this.updateInputNodes()
+  }
+
+  /**
+   * Syncs analyzer settings from global options
+   */
+  private syncAnalyzerSettings(): void {
     this.analyzer.masterVolume = this.getMasterVolume()
     this.analyzer.smoothing = this.getSmoothing()
     this.analyzer.normalizeLevels = this.getNormalizeLevels()
@@ -493,11 +568,28 @@ export class AudioInput implements IPlugin {
     this.analyzer.levelsPower = this.getLevelsPower()
     this.analyzer.maxLevelFalloffMultiplier = this.getMaxLevelFalloffMultiplier()
     this.analyzer.maxLevelMinimum = this.getMaxLevelMinimum()
+  }
 
-    // Update the analyzer
-    this.analyzer.update()
+  /**
+   * Updates audio analysis on each frame
+   * In manual mode, this only updates the input nodes without fetching new audio data
+   */
+  public update() {
+    if (!this.audioData) return
 
-    // Update nodes based on new audio levels
+    const isManualMode = this.getManualMode()
+
+    // Sync analyzer settings
+    this.syncAnalyzerSettings()
+
+    // Only fetch and process audio data automatically if not in manual mode
+    if (!isManualMode) {
+      // Update the analyzer (fetches data from microphone)
+      this.analyzer.update()
+    }
+
+    // Always update nodes based on current audio levels
+    // (In manual mode, levels are updated via processManualAudioData)
     this.updateInputNodes()
 
     // Schedule next update
