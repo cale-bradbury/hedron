@@ -100,8 +100,8 @@ export class Renderer {
     if (!this.viewerContainer) throw new Error('viewerEl not set')
 
     const settings = {
-      aspectW: 16,
       aspectH: 9,
+      aspectW: 16,
     }
 
     let width: number, ratio: number
