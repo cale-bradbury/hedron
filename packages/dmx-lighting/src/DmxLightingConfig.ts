@@ -8,6 +8,7 @@ export const globalOptionNodesConfig = [
     options: [
       { value: 'artnet', label: 'ArtNet' },
       { value: 'sacn', label: 'sACN' },
+      { value: 'usb', label: 'USB DMX' },
     ],
     defaultValue: 'artnet',
   },

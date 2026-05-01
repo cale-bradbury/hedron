@@ -36,13 +36,11 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({
   const lerpSpeed = nodeValues[`${plugin.id}-global-lerpSpeed`] ?? 0.2
   const lerpMode = nodeValues[`${plugin.id}-global-lerpMode`] || 'linear-rgb'
 
-  const [_, forceUpdate] = React.useReducer((x) => x + 1, 0)
-  React.useEffect(() => {
-    const interval = setInterval(forceUpdate, 500)
-    return () => clearInterval(interval)
-  }, [])
   const colors = plugin['colors']
   const devices = plugin['devices']
+
+  // Force update only when needed (on user interaction)
+  const [, forceUpdate] = React.useReducer((x) => x + 1, 0)
 
   return (
     <HedronErrorBoundary>
@@ -61,6 +59,7 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({
           >
             <option value="artnet">ArtNet</option>
             <option value="sacn">sACN</option>
+            <option value="usb">USB DMX</option>
           </select>
         </div>
         <div>
@@ -116,29 +115,61 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({
         <ul>
           {Object.values(colors).map((color) => (
             <li key={color.id}>
-              <b>{color.id}</b>: [
-              {color.value.map((v, i) => (
-                <span key={i}>
-                  {v}
-                  {i < 2 ? ', ' : ''}
-                </span>
-              ))}
-              ]
+              <div>
+                <b>{color.id}</b>
+                {' - '}
+                Channels: {color.channelMap.join(', ')}
+                {color.podCount && color.podCount > 1 && ` (${color.podCount} pods)`}
+              </div>
+              <div style={{ fontSize: '0.9em', marginLeft: 16 }}>
+                {Object.entries(color.channels).map(([channel, value]) => (
+                  <span key={channel} style={{ marginRight: 8 }}>
+                    {channel}: {Math.round(value || 0)}
+                  </span>
+                ))}
+              </div>
               <input
                 type="text"
                 value={color.target}
-                placeholder="DMX Address"
+                placeholder="DMX Start Address (e.g., 1)"
                 onChange={(e) => {
-                  color.target = e.target.value
+                  plugin.setFixtureTarget(color.id, e.target.value)
                   forceUpdate()
                 }}
+                style={{ marginLeft: 16, marginTop: 4 }}
               />
             </li>
           ))}
         </ul>
         <h3>DMX Devices</h3>
-        <pre>{JSON.stringify(devices, null, 2)}</pre>
+        <button onClick={() => plugin.fetchDeviceInfo().then(() => forceUpdate())}>
+          Refresh Devices
+        </button>
+        <div style={{ fontSize: '0.9em', marginTop: 8 }}>
+          {devices.map((device, idx) => (
+            <div key={idx} style={{ marginBottom: 12, padding: 8, background: '#222' }}>
+              <div>
+                <strong>{device.name}</strong>
+              </div>
+              <div>Path: {device.path}</div>
+              <div>Driver: {device.driver}</div>
+              <div>Status: {device.status}</div>
+              {device.lastSent && <div>Last Sent: {device.lastSent}</div>}
+              {device.lastData && (
+                <details>
+                  <summary>DMX Data</summary>
+                  <pre style={{ fontSize: '0.8em', overflow: 'auto', maxHeight: 200 }}>
+                    {device.lastData}
+                  </pre>
+                </details>
+              )}
+            </div>
+          ))}
+        </div>
         <button onClick={() => plugin.logDeviceInfo()}>Log Device Info</button>
+        <button onClick={() => plugin.testDMX()} style={{ marginLeft: 8 }}>
+          Test DMX (Full White)
+        </button>
       </div>
     </HedronErrorBoundary>
   )

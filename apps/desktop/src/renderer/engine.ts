@@ -33,7 +33,16 @@ engine.registerPlugin(new TimelineInput())
 engine.registerPlugin(new SceneControlPlugin())
 engine.registerPlugin(new ParamPresetsPlugin())
 
-engine.registerPlugin(new DmxLightingPlugin(engine))
+const dmxPlugin = new DmxLightingPlugin(engine)
+engine.registerPlugin(dmxPlugin)
+
+// Expose engine and DMX API to window for sketch access
+;(window as any).hedron = {
+  engine,
+  lighting: {
+    setFixtureColor: dmxPlugin.setFixtureColor.bind(dmxPlugin),
+  },
+}
 
 export const pluginViews = {
   inputPanel: {

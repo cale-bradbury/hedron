@@ -21,6 +21,7 @@ import { saveProjectFile } from '@main/handlers/saveProjectFile'
 import { openProjectFile } from '@main/handlers/openProjectFile'
 import { openFolder } from '@main/handlers/openFolder'
 import { FrameEvents } from '@shared/FrameEvents'
+import { dmxService } from '@main/dmxService'
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
 // This method will be called when Electron has finished
@@ -137,3 +138,17 @@ ipcMain.handle(ResourceEvents.StartResourcesServer, async (_, resourcesDir: stri
 
 ipcMain.handle(FrameEvents.SaveFrame, saveFrameHandler)
 ipcMain.handle(FrameEvents.SaveFrameSequence, saveFrameSequenceHandler)
+
+// DMX IPC Handlers
+ipcMain.handle('dmx:send', async (_, colors, opts) => {
+  await dmxService.sendColors(colors, opts)
+})
+
+ipcMain.handle('dmx:getDevices', async () => {
+  return await dmxService.getDevices()
+})
+
+// Clean up DMX on quit
+app.on('before-quit', () => {
+  dmxService.destroy()
+})

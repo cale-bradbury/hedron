@@ -1,18 +1,40 @@
 {
   "name": "@hedron-gl/dmx-lighting",
-  "version": "0.1.0",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "version": "1.0.0-alpha.4",
+  "description": "DMX Lighting control for Hedron",
+  "author": "Cale Bradbury",
+  "homepage": "https://github.com/nudibranchrecords/hedron#readme",
+  "type": "module",
+  "license": "ISC",
+  "main": "./dist/dmx-lighting.es.js",
+  "types": "./dist/index.d.ts",
+  "directories": {
+    "lib": "lib",
+    "test": "__tests__"
+  },
+  "files": [
+    "lib"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nudibranchrecords/hedron.git"
+  },
   "scripts": {
-    "build": "tsup src/index.ts --dts --format esm,cjs --out-dir dist",
-    "dev": "tsup src/index.ts --watch --dts --format esm,cjs --out-dir dist"
+    "dev": "tsup src/index.ts --watch --dts --format esm --out-dir dist",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsup src/index.ts --dts --format esm --out-dir dist",
+    "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix"
   },
   "dependencies": {
-    "@hedron-gl/engine": "*"
+    "@hedron-gl/engine": "^1.0.0-alpha.4"
   },
   "devDependencies": {
+    "@types/react": "^18.3.18",
+    "react": "^18.3.1",
     "tsup": "^8.3.6",
     "typescript": "^5.6.2"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1"
   }
 }
