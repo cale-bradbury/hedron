@@ -33,6 +33,17 @@ const DMX_FRAME_MS = 30 // ~33 fps
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ChannelType = 'red' | 'green' | 'blue' | 'white' | 'intensity'
 
+type ChannelSlot =
+  | ChannelType
+  | { field: ChannelType; scale?: number }
+  | { absolute: number }
+  | null
+
+interface FixtureMapping {
+  startAddresses: number[]
+  channels: ChannelSlot[]
+}
+
 interface FixtureChannels {
   red?: number
   green?: number
@@ -44,9 +55,7 @@ interface FixtureChannels {
 interface DmxColor {
   id: string
   channels: FixtureChannels
-  target: string
-  channelMap: ChannelType[]
-  podCount?: number
+  mappings?: FixtureMapping[]
 }
 
 interface DmxOptions {
@@ -60,12 +69,48 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/**
+ * Resolve a single ChannelSlot to a clamped 0–255 integer.
+ *
+ * - `ChannelType` string — reads the named field, applies brightness (except
+ *   'intensity' which the sketch is expected to pre-scale).
+ * - `{ field, scale? }` — same as above, then multiplies by per-slot scale.
+ * - `{ absolute }` — fixed value, brightness is NOT applied.
+ * - `null` / undefined — outputs 0 (padding).
+ */
+function resolveSlot(
+  slot: ChannelSlot | null | undefined,
+  channels: FixtureChannels,
+  brightness: number,
+): number {
+  if (slot === null || slot === undefined) return 0
+
+  if (typeof slot === 'string') {
+    let value = channels[slot] ?? 0
+    if (slot !== 'intensity') value = value * brightness
+    return Math.min(255, Math.max(0, Math.round(value)))
+  }
+
+  if ('absolute' in slot) {
+    return Math.min(255, Math.max(0, Math.round(slot.absolute)))
+  }
+
+  // { field, scale? }
+  let value = channels[slot.field] ?? 0
+  if (slot.field !== 'intensity') value = value * brightness
+  if (slot.scale !== undefined) value = value * slot.scale
+  return Math.min(255, Math.max(0, Math.round(value)))
+}
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 class DmxService {
   private device: UsbDevice | null = null
   private iface: UsbInterface | null = null
   private outEp: UsbOutEndpoint | null = null
-  private universe = Buffer.alloc(512, 0) // channels 1-512 at indices 0-511
+  private universe = Buffer.alloc(512, 0) // smoothed output — what the hardware sees
+  private targetUniverse = Buffer.alloc(512, 0) // desired values set by sendColors()
+  private smoothedUniverse = new Float32Array(512) // float accumulator for lerp
+  private currentLerpSpeed = 0
   private isReady = false
   private running = false
   private initPromise: Promise<void> | null = null
@@ -85,24 +130,21 @@ class DmxService {
     if (!this.isReady) await this.initialize()
     if (!this.isReady) return
 
+    this.currentLerpSpeed = Math.max(0, Math.min(1, opts.lerpSpeed ?? 0))
+
     Object.values(colors).forEach((color) => {
-      if (!color.target) return
-      const startAddress = parseInt(color.target.split(':').pop() || '1', 10)
-      if (startAddress < 1 || startAddress > 512) return
-
-      const podCount = color.podCount || 1
-      const channelMap = color.channelMap || ['red', 'green', 'blue', 'white', 'intensity']
-      const channelsPerPod = channelMap.length
-
-      for (let pod = 0; pod < podCount; pod++) {
-        channelMap.forEach((channelType, index) => {
-          const dmxAddress = startAddress + pod * channelsPerPod + index
-          if (dmxAddress > 512) return
-          let value = color.channels[channelType] ?? 0
-          if (channelType !== 'intensity') value = Math.round(value * opts.brightness)
-          const clamped = Math.min(255, Math.max(0, Math.round(value)))
-          this.universe[dmxAddress - 1] = clamped
-          this.lastSentData[dmxAddress] = clamped
+      if (color.mappings && color.mappings.length > 0) {
+        color.mappings.forEach((mapping) => {
+          mapping.startAddresses.forEach((startAddress) => {
+            if (startAddress < 1 || startAddress > 512) return
+            mapping.channels.forEach((slot, index) => {
+              const dmxAddress = startAddress + index
+              if (dmxAddress > 512) return
+              const value = resolveSlot(slot, color.channels, opts.brightness)
+              this.targetUniverse[dmxAddress - 1] = value
+              this.lastSentData[dmxAddress] = value
+            })
+          })
         })
       }
     })
@@ -221,6 +263,19 @@ class DmxService {
       // Release BREAK — chip returns to IDLE, fulfilling the MAB requirement
       await this.ctrlOut(this.device, FTDI_SIO_SET_DATA, FTDI_LINE_8N2, FTDI_IFACE_IDX)
       await sleep(1)
+      // Apply per-channel lerp toward target values
+      const factor = 1 - this.currentLerpSpeed
+      if (factor >= 1) {
+        // lerpSpeed=0 → instant: copy target directly
+        this.targetUniverse.copy(this.universe)
+        this.smoothedUniverse.set(this.universe)
+      } else {
+        for (let i = 0; i < 512; i++) {
+          this.smoothedUniverse[i] += (this.targetUniverse[i] - this.smoothedUniverse[i]) * factor
+          this.universe[i] = Math.round(this.smoothedUniverse[i])
+        }
+      }
+
       // Packet: start code 0x00 + 512 channel bytes
       const packet = Buffer.allocUnsafe(513)
       packet[0] = 0x00

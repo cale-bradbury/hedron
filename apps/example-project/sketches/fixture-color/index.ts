@@ -63,7 +63,7 @@ export default class FixtureColorSketch {
     if (window.hedron?.lighting?.setFixtureColor) {
       // Convert to [0-255] for DMX
       window.hedron.lighting.setFixtureColor(
-        'fixture-1',
+        params.fixtureName || 'fixture-1',
         {
           red: Math.max(0, Math.min(255, Math.round(mixed.x * 255 * params.brightness))),
           green: Math.max(0, Math.min(255, Math.round(mixed.y * 255 * params.brightness))),

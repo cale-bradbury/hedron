@@ -1,0 +1,39 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  background: var(--bgColorDark4, #111);
+  border: 1px solid var(--lineColor2, #2a2a2a);
+  border-radius: 4px;
+}
+
+.moveButtons {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.empty {
+  font-size: 0.8em;
+  color: var(--textColorLight2, #555);
+  padding: 6px 8px;
+  font-style: italic;
+  border: 1px dashed var(--lineColor2, #2a2a2a);
+  border-radius: 4px;
+  text-align: center;
+}

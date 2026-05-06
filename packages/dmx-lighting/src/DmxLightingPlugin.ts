@@ -14,8 +14,11 @@ declare global {
         setFixtureColor: (
           id: string,
           channels: FixtureChannels,
-          options?: { channelMap?: ChannelType[]; podCount?: number },
+          options?: {
+            mappings?: FixtureMapping[]
+          },
         ) => void
+        setFixtureMappings: (id: string, mappings: FixtureMapping[]) => void
       }
     }
   }
@@ -26,6 +29,27 @@ import { SacnSender } from './protocols/SacnSender'
 export type DmxProtocol = 'artnet' | 'sacn' | 'usb'
 export type LerpMode = 'linear-rgb' | 'curved-hsb'
 export type ChannelType = 'red' | 'green' | 'blue' | 'white' | 'intensity'
+
+/**
+ * A single channel slot in a FixtureMapping.
+ * - `ChannelType` string: read from virtual channels, apply global brightness (except 'intensity')
+ * - `{ field, scale? }`: read field, apply brightness, then multiply by per-slot scale
+ * - `{ absolute }`: fixed 0–255 value, brightness NOT applied
+ * - `null`: always outputs 0 (padding channel)
+ */
+export type ChannelSlot =
+  | ChannelType
+  | { field: ChannelType; scale?: number }
+  | { absolute: number }
+  | null
+
+/** Maps one or more DMX start addresses to an ordered list of channel slots. */
+export interface FixtureMapping {
+  /** One or more DMX universe addresses (1–512). Each gets the same resolved bytes. */
+  startAddresses: number[]
+  /** Output channel order starting from each startAddress. */
+  channels: ChannelSlot[]
+}
 
 export interface FixtureChannels {
   red?: number
@@ -38,9 +62,7 @@ export interface FixtureChannels {
 export interface FixtureColor {
   id: string
   channels: FixtureChannels
-  target: string // DMX fixture start address
-  channelMap: ChannelType[] // Order of channels from start address
-  podCount?: number // Number of fixture pods to control (default: 1)
+  mappings: FixtureMapping[]
 }
 
 export interface DmxLightingState {
@@ -80,54 +102,82 @@ export class DmxLightingPlugin implements IPlugin {
   }> = []
   private artnetSender = new ArtNetSender()
   private sacnSender = new SacnSender()
-  private defaultChannelMap: ChannelType[] = ['red', 'green', 'blue', 'white', 'intensity']
   private lastSentColorState: string = ''
   private lastSendTime: number = 0
   private sendThrottleMs: number = 33 // ~30fps max update rate
 
   constructor(engine: HedronEngine) {
     this.engine = engine
+    // Re-send to hardware whenever the user changes a global option node,
+    // even when the sketch is paused (no per-frame setFixtureColor calls).
+    const store = engine.getStore()
+    const globalOptKeys = globalOptionNodesConfig.map((n) => `${this.id}-global-${n.key}`)
+    store.subscribe(
+      (state) => globalOptKeys.map((k) => state.nodeValues[k]).join('\0'),
+      () => this.notifyGlobalOptsChanged(),
+    )
   }
 
   public setFixtureColor(
     id: string,
     channels: FixtureChannels,
     options?: {
-      channelMap?: ChannelType[]
-      podCount?: number
+      mappings?: FixtureMapping[]
     },
   ) {
     if (!this.colors[id]) {
-      // Load saved target from store if it exists
       const store = this.engine.getStore()
-      const savedTarget = store.getState().nodeValues[`${this.id}-fixture-${id}-target`] || ''
+      const nodeValues = store.getState().nodeValues
 
-      this.colors[id] = {
-        id,
-        channels,
-        target: savedTarget as string,
-        channelMap: options?.channelMap || this.defaultChannelMap,
-        podCount: options?.podCount || 1,
+      // Try persisted mappings first
+      let mappings: FixtureMapping[] | undefined
+      const savedMappingsRaw = nodeValues[`${this.id}-fixture-${id}-mappings`]
+      if (savedMappingsRaw) {
+        try {
+          mappings = JSON.parse(savedMappingsRaw as string) as FixtureMapping[]
+        } catch (_) {
+          /* corrupt store value — ignore and fall through */
+        }
+      }
+
+      // Use explicitly provided mappings from call-site options
+      if (!mappings && options?.mappings) {
+        mappings = options.mappings
+      }
+
+      const resolvedMappings = mappings ?? []
+      this.colors[id] = { id, channels, mappings: resolvedMappings }
+
+      // Write initial mappings to store so the panel always reads from a single
+      // source of truth and doesn't need to fall back to in-memory state.
+      if (resolvedMappings.length > 0) {
+        const storeForWrite = this.engine.getStore()
+        storeForWrite.setState((state) => {
+          if (!state.nodeValues[`${this.id}-fixture-${id}-mappings`]) {
+            state.nodeValues[`${this.id}-fixture-${id}-mappings`] = JSON.stringify(resolvedMappings)
+          }
+          return state
+        })
       }
     } else {
       this.colors[id].channels = channels
-      if (options?.channelMap) {
-        this.colors[id].channelMap = options.channelMap
-      }
-      if (options?.podCount !== undefined) {
-        this.colors[id].podCount = options.podCount
-      }
+      // Mappings are intentionally NOT updated from call-site options after initial
+      // creation — use setFixtureMappings() to reconfigure. This prevents sketch
+      // code that passes hardcoded options from clobbering user-configured mappings.
     }
     this.sendDMXData()
   }
 
-  public setFixtureTarget(id: string, target: string) {
+  /**
+   * Persist and apply a new mapping for a fixture.
+   * Saves to the store so the configuration survives app restarts.
+   */
+  public setFixtureMappings(id: string, mappings: FixtureMapping[]) {
     if (this.colors[id]) {
-      this.colors[id].target = target
-      // Save to store for persistence
+      this.colors[id].mappings = mappings
       const store = this.engine.getStore()
       store.setState((state) => {
-        state.nodeValues[`${this.id}-fixture-${id}-target`] = target
+        state.nodeValues[`${this.id}-fixture-${id}-mappings`] = JSON.stringify(mappings)
         return state
       })
       this.sendDMXData()
@@ -135,9 +185,16 @@ export class DmxLightingPlugin implements IPlugin {
   }
 
   /**
-   * Send DMX data to all fixtures using the selected protocol.
-   * Throttled to prevent excessive updates.
+   * Called from the panel when a global option (brightness, lerp, protocol)
+   * changes. Resets the change-detection state and bypasses the throttle so
+   * the new value is applied to the hardware immediately.
    */
+  public notifyGlobalOptsChanged() {
+    this.lastSentColorState = ''
+    this.lastSendTime = 0
+    this.sendDMXData()
+  }
+
   sendDMXData() {
     // Throttle: only send at most once per throttle interval
     const now = Date.now()
@@ -145,20 +202,27 @@ export class DmxLightingPlugin implements IPlugin {
       return
     }
 
-    // Check if colors have actually changed
-    const currentState = JSON.stringify(this.colors)
-    if (currentState === this.lastSentColorState) {
-      return // No changes, skip send
-    }
-
-    // Get global options from store
+    // Get global options from store — read BEFORE change detection so that
+    // a brightness/lerp change is always included in the state hash.
     const store = this.engine.getStore()
-    const storeState = store.getState()
-    const nodeValues = storeState.nodeValues
+    const nodeValues = store.getState().nodeValues
     const protocol = nodeValues[`${this.id}-global-protocol`] || 'artnet'
     const brightness = nodeValues[`${this.id}-global-brightness`] ?? 1
     const lerpSpeed = nodeValues[`${this.id}-global-lerpSpeed`] ?? 0.2
     const lerpMode = nodeValues[`${this.id}-global-lerpMode`] || 'linear-rgb'
+
+    // Include opts in the hash so that a static scene still re-sends when
+    // the user moves a global slider.
+    const currentState = JSON.stringify({
+      colors: this.colors,
+      brightness,
+      lerpSpeed,
+      lerpMode,
+      protocol,
+    })
+    if (currentState === this.lastSentColorState) {
+      return
+    }
 
     const opts = { brightness, lerpSpeed, lerpMode }
     if (protocol === 'artnet') {
@@ -199,6 +263,24 @@ export class DmxLightingPlugin implements IPlugin {
     }
   }
 
+  /** Public read access for the panel UI. */
+  public getColors(): Record<string, FixtureColor> {
+    return this.colors
+  }
+
+  /** Public read access for the panel UI. */
+  public getDevices(): Array<{
+    name: string
+    status?: string
+    protocol?: string
+    driver?: string
+    path?: string
+    lastSent?: string
+    lastData?: string
+  }> {
+    return this.devices
+  }
+
   logDeviceInfo() {
     console.log('DMX Devices:', this.devices)
     console.log('DMX Colors:', this.colors)
@@ -220,9 +302,12 @@ export class DmxLightingPlugin implements IPlugin {
           white: 255,
           intensity: 255,
         },
-        target: '1',
-        channelMap: ['red', 'green', 'blue', 'white', 'intensity'],
-        podCount: 4,
+        mappings: [
+          {
+            startAddresses: [1, 6, 11, 16], // 4 pods of 5 channels each
+            channels: ['red', 'green', 'blue', 'white', 'intensity'],
+          },
+        ],
       }
       const testColors = { test: testColor }
       const testOpts = { brightness: 1, lerpSpeed: 0, lerpMode: 'linear-rgb' }
