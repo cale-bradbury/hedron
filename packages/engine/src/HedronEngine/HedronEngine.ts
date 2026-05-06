@@ -112,6 +112,11 @@ export class HedronEngine {
 
         // Only create the node if it doesn't already exist
         if (state.nodes[nodeId]) {
+          // Always sync options for enum nodes so config changes are reflected
+          if (cfg.valueType === 'enum' && 'options' in cfg && cfg.options) {
+            const existing = state.nodes[nodeId] as Record<string, unknown>
+            existing.options = [...cfg.options]
+          }
           continue
         }
 
