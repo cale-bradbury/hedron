@@ -75,8 +75,13 @@ export default class FixtureColorSketch {
           ),
         },
         {
-          channelMap: ['red', 'green', 'blue', 'white', 'intensity'],
-          podCount: 4, // Control all 4 pods
+          mappings: [
+            {
+              // 4 pods × 5 channels each: addresses 1-5, 6-10, 11-15, 16-20
+              startAddresses: [1, 6, 11, 16],
+              channels: ['red', 'green', 'blue', 'white', 'intensity'],
+            },
+          ],
         },
       )
     }
@@ -94,6 +99,12 @@ export default class FixtureColorSketch {
       description: 'Mixes two colors and sends to DMX, also tints the scene.',
       category: 'lighting',
       params: [
+        {
+          title: 'Fixture Name',
+          key: 'fixtureName',
+          valueType: 'string',
+          defaultValue: 'fixture-1',
+        },
         {
           title: 'Color A',
           key: 'colorA',
