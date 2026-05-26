@@ -3,6 +3,7 @@ import { AudioDeviceManager } from './AudioDeviceManager'
 import { AudioAnalyzer, AudioData, FrequencyBand, BAND_COLORS } from './AudioAnalyzer'
 import { lerp } from './AudioUtils'
 import { handleAudioError } from './AudioTestUtils'
+import { HedronDOMCapture, HEDRON_INTERNAL_DEVICE_ID } from './HedronDOMCapture'
 
 /**
  * Audio Input plugin for capturing and processing audio from the microphone
@@ -172,6 +173,15 @@ export class AudioInput implements IPlugin {
   public analyzer: AudioAnalyzer
 
   /**
+   * DOM capture instance used when the Hedron internal audio source is selected.
+   * Created eagerly in the constructor and registered as window.__hedronDOMCapture
+   * so sketch VideoPlayers can use the shared AudioContext before they call
+   * createMediaElementSource(). Kept alive across re-initializations because
+   * each HTMLMediaElement can only be sourced once.
+   */
+  private _domCapture: HedronDOMCapture
+
+  /**
    * Reference to the engine's state store
    */
   private _store
@@ -188,6 +198,13 @@ export class AudioInput implements IPlugin {
     this.analyzer = new AudioAnalyzer(AudioInput.DEFAULT_BANDS)
     // Sync band configurations once on initialization
     this.syncBandConfigurations()
+
+    // Eagerly create the Hedron internal DOM capture and register it as
+    // window.__hedronDOMCapture so sketch code can route audio through the
+    // shared context from the first initAudio() call.
+    this._domCapture = new HedronDOMCapture()
+    this._domCapture.start()
+
     // Initialize audio capture
     this.deviceManager
       .updateInputDeviceList()
@@ -295,8 +312,24 @@ export class AudioInput implements IPlugin {
       // Update device list
       await this.updateInputDeviceList()
 
-      // Get an audio stream using the device manager
-      const stream = await this.deviceManager.getAudioStream()
+      // Hedron internal source: reuse a persistent AudioContext that owns its
+      // own AnalyserNode so elements are only ever sourced once (browser constraint)
+      // and no cross-context MediaStream bridging is needed.
+      if (this.deviceManager.currentDeviceId === HEDRON_INTERNAL_DEVICE_ID) {
+        console.log('[AudioInput] Switching to Hedron internal source')
+        console.log(`[AudioInput] DOM capture context state: ${this._domCapture.context.state}`)
+        if (this._domCapture.context.state === 'suspended') {
+          console.log('[AudioInput] Resuming DOM capture context...')
+          await this._domCapture.context.resume()
+          console.log(
+            `[AudioInput] DOM capture context state after resume: ${this._domCapture.context.state}`,
+          )
+        }
+        return this.analyzer.setupAudioData(
+          this._domCapture.analyser,
+          this._domCapture.context.sampleRate,
+        )
+      }
 
       // Create audio context
       const context = new window.AudioContext()
@@ -305,6 +338,10 @@ export class AudioInput implements IPlugin {
           `[AudioInput] Audio context created. Sample rate: ${context.sampleRate}Hz, State: ${context.state}`,
         )
       }
+
+      // Determine the audio source: either the Hedron internal DOM capture or
+      // a regular microphone/device stream via getUserMedia.
+      const stream = await this.deviceManager.getAudioStream()
 
       // Create media stream source and analyzer
       const source = context.createMediaStreamSource(stream)

@@ -7,6 +7,7 @@ import {
   NodeControlTitle,
 } from '@hedron-gl/ui-core'
 import { AudioInput } from './AudioInput'
+import { HEDRON_INTERNAL_DEVICE_ID } from './HedronDOMCapture'
 import styles from './AudioInputPanel.module.css'
 
 interface AudioInputSelectorProps {
@@ -93,6 +94,7 @@ export const AudioInputSelector = ({ audioPlugin }: AudioInputSelectorProps) => 
               disabled={isChangingDevice || isRefreshingDevices}
             >
               <option value="default">System Default</option>
+              <option value={HEDRON_INTERNAL_DEVICE_ID}>Hedron (Internal)</option>
               {audioPlugin.deviceManager.availableInputDevices.map((device) => (
                 <option key={device.deviceId} value={device.deviceId}>
                   {device.label || `Device (${device.deviceId.slice(0, 8)}...)`}
