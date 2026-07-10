@@ -7,7 +7,10 @@ export class ArtNetSender {
     // Initialize ArtNet connection here
   }
 
-  sendDMX(colors: Record<string, FixtureColor>, opts: { brightness: number; lerpSpeed: number; lerpMode: string }) {
+  sendDMX(
+    colors: Record<string, FixtureColor>,
+    opts: { brightness: number; lerpSpeed: number; lerpMode: string },
+  ) {
     // TODO: Implement ArtNet DMX packet sending
     console.log('[ArtNet] Sending DMX:', colors, opts)
   }

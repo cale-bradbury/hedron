@@ -17,7 +17,6 @@ packages/
       DmxLightingPlugin.ts    ← main plugin class, setFixtureColor() API
       DmxLightingConfig.ts    ← global option nodes (protocol, brightness, lerpSpeed)
       DmxLightingGlobalPanel.tsx
-      DmxLightingGlobalWidget.tsx
       protocols/
         ArtNetSender.ts       ← stub
         SacnSender.ts         ← stub

@@ -1,4 +1,5 @@
 import { HedronEngine, IPlugin } from '@hedron-gl/engine'
+import { dmxIcon } from '@hedron-gl/ui-core'
 import { globalOptionNodesConfig } from './DmxLightingConfig'
 
 // Extend Window type for Electron bridge
@@ -83,8 +84,10 @@ export interface DmxLightingState {
 }
 
 export class DmxLightingPlugin implements IPlugin {
-  public readonly id = 'dmx-lighting'
+  public static ID = 'dmx-lighting'
+  public readonly id = DmxLightingPlugin.ID
   public readonly name = 'DMX Lighting'
+  public readonly iconName = dmxIcon
   public readonly description = 'Controls DMX lighting fixtures via ArtNet or sACN.'
   public readonly globalOptionNodesConfig = globalOptionNodesConfig
   public readonly optionNodesConfig = []
@@ -113,7 +116,7 @@ export class DmxLightingPlugin implements IPlugin {
     const store = engine.getStore()
     const globalOptKeys = globalOptionNodesConfig.map((n) => `${this.id}-global-${n.key}`)
     store.subscribe(
-      (state) => globalOptKeys.map((k) => state.nodeValues[k]).join('\0'),
+      (state) => globalOptKeys.map((k) => state.paramValues[k]).join('\0'),
       () => this.notifyGlobalOptsChanged(),
     )
   }
@@ -127,11 +130,11 @@ export class DmxLightingPlugin implements IPlugin {
   ) {
     if (!this.colors[id]) {
       const store = this.engine.getStore()
-      const nodeValues = store.getState().nodeValues
+      const paramValues = store.getState().paramValues
 
       // Try persisted mappings first
       let mappings: FixtureMapping[] | undefined
-      const savedMappingsRaw = nodeValues[`${this.id}-fixture-${id}-mappings`]
+      const savedMappingsRaw = paramValues[`${this.id}-fixture-${id}-mappings`]
       if (savedMappingsRaw) {
         try {
           mappings = JSON.parse(savedMappingsRaw as string) as FixtureMapping[]
@@ -153,8 +156,9 @@ export class DmxLightingPlugin implements IPlugin {
       if (resolvedMappings.length > 0) {
         const storeForWrite = this.engine.getStore()
         storeForWrite.setState((state) => {
-          if (!state.nodeValues[`${this.id}-fixture-${id}-mappings`]) {
-            state.nodeValues[`${this.id}-fixture-${id}-mappings`] = JSON.stringify(resolvedMappings)
+          if (!state.paramValues[`${this.id}-fixture-${id}-mappings`]) {
+            state.paramValues[`${this.id}-fixture-${id}-mappings`] =
+              JSON.stringify(resolvedMappings)
           }
           return state
         })
@@ -177,7 +181,7 @@ export class DmxLightingPlugin implements IPlugin {
       this.colors[id].mappings = mappings
       const store = this.engine.getStore()
       store.setState((state) => {
-        state.nodeValues[`${this.id}-fixture-${id}-mappings`] = JSON.stringify(mappings)
+        state.paramValues[`${this.id}-fixture-${id}-mappings`] = JSON.stringify(mappings)
         return state
       })
       this.sendDMXData()
@@ -205,11 +209,11 @@ export class DmxLightingPlugin implements IPlugin {
     // Get global options from store — read BEFORE change detection so that
     // a brightness/lerp change is always included in the state hash.
     const store = this.engine.getStore()
-    const nodeValues = store.getState().nodeValues
-    const protocol = nodeValues[`${this.id}-global-protocol`] || 'artnet'
-    const brightness = nodeValues[`${this.id}-global-brightness`] ?? 1
-    const lerpSpeed = nodeValues[`${this.id}-global-lerpSpeed`] ?? 0.2
-    const lerpMode = nodeValues[`${this.id}-global-lerpMode`] || 'linear-rgb'
+    const paramValues = store.getState().paramValues
+    const protocol = (paramValues[`${this.id}-global-protocol`] as string) || 'artnet'
+    const brightness = (paramValues[`${this.id}-global-brightness`] as number) ?? 1
+    const lerpSpeed = (paramValues[`${this.id}-global-lerpSpeed`] as number) ?? 0.2
+    const lerpMode = (paramValues[`${this.id}-global-lerpMode`] as string) || 'linear-rgb'
 
     // Include opts in the hash so that a static scene still re-sends when
     // the user moves a global slider.
@@ -258,7 +262,7 @@ export class DmxLightingPlugin implements IPlugin {
       // Fallback for non-Electron environments
       const store = this.engine.getStore()
       const storeState = store.getState()
-      const protocol = storeState.nodeValues[`${this.id}-global-protocol`] || 'artnet'
+      const protocol = (storeState.paramValues[`${this.id}-global-protocol`] as string) || 'artnet'
       this.devices = [{ name: 'Stub Device', protocol, status: 'Not implemented' }]
     }
   }

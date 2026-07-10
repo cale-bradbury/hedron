@@ -1,7 +1,8 @@
-import { NodeConfig } from '@hedron-gl/engine'
+import { IPlugin } from '@hedron-gl/engine'
 
 export const globalOptionNodesConfig = [
   {
+    nodeType: 'param',
     key: 'protocol',
     title: 'Protocol',
     valueType: 'enum',
@@ -13,6 +14,7 @@ export const globalOptionNodesConfig = [
     defaultValue: 'artnet',
   },
   {
+    nodeType: 'param',
     key: 'brightness',
     title: 'Brightness',
     valueType: 'number',
@@ -21,6 +23,7 @@ export const globalOptionNodesConfig = [
     sliderMax: 1,
   },
   {
+    nodeType: 'param',
     key: 'lerpSpeed',
     title: 'Lerp Speed',
     valueType: 'number',
@@ -29,6 +32,7 @@ export const globalOptionNodesConfig = [
     sliderMax: 1,
   },
   {
+    nodeType: 'param',
     key: 'lerpMode',
     title: 'Lerp Mode',
     valueType: 'enum',
@@ -38,4 +42,4 @@ export const globalOptionNodesConfig = [
     ],
     defaultValue: 'linear-rgb',
   },
-] as const satisfies NodeConfig[]
+] as const satisfies IPlugin['globalOptionNodesConfig']

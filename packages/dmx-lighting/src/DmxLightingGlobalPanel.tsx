@@ -4,9 +4,6 @@ import {
   Button,
   Collapsible,
   ReorderableList,
-  Panel,
-  PanelHeader,
-  PanelBody,
   ControlGrid,
   NodeContainer,
 } from '@hedron-gl/ui-core'
@@ -21,7 +18,6 @@ import {
 
 export interface DmxLightingGlobalPanelProps {
   engine: HedronEngine
-  plugin: DmxLightingPlugin
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -65,18 +61,16 @@ function parseAddresses(str: string): number[] {
 
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
-export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({
-  engine,
-  plugin,
-}) => {
+export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ engine }) => {
+  const plugin = engine.getPlugin<DmxLightingPlugin>(DmxLightingPlugin.ID)
   const store = plugin && engine ? engine.getStore() : null
 
-  const [nodeValues, setNodeValues] = React.useState(store ? store.getState().nodeValues : {})
+  const [paramValues, setParamValues] = React.useState(store ? store.getState().paramValues : {})
   React.useEffect(() => {
     if (!store) return
     return store.subscribe(
-      (state) => state.nodeValues,
-      (nv) => setNodeValues(nv),
+      (state) => state.paramValues,
+      (nv) => setParamValues(nv),
     )
   }, [store])
 
@@ -98,7 +92,7 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({
   // Read mappings from the store (source of truth) so the panel reflects persisted
   // config even if the plugin's in-memory state gets out of sync.
   const getMappings = (id: string): FixtureMapping[] => {
-    const stored = nodeValues[`${plugin.id}-fixture-${id}-mappings`]
+    const stored = paramValues[`${plugin.id}-fixture-${id}-mappings`]
     if (stored) {
       try {
         return JSON.parse(stored as string) as FixtureMapping[]
@@ -144,290 +138,285 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({
 
   return (
     <HedronErrorBoundary>
-      <Panel>
-        <PanelHeader>DMX Lighting</PanelHeader>
-        <PanelBody>
-          <ControlGrid>
-            <NodeContainer nodeId={`${plugin.id}-global-protocol`} />
-            <NodeContainer nodeId={`${plugin.id}-global-brightness`} />
-            <NodeContainer nodeId={`${plugin.id}-global-lerpSpeed`} />
-            <NodeContainer nodeId={`${plugin.id}-global-lerpMode`} />
-          </ControlGrid>
+      <div>
+        <ControlGrid>
+          <NodeContainer nodeId={`${plugin.id}-global-protocol`} />
+          <NodeContainer nodeId={`${plugin.id}-global-brightness`} />
+          <NodeContainer nodeId={`${plugin.id}-global-lerpSpeed`} />
+          <NodeContainer nodeId={`${plugin.id}-global-lerpMode`} />
+        </ControlGrid>
 
-          {/* ── Fixtures ──────────────────────────────────────────────────── */}
-          <h3 style={s.sectionHeader}>Fixtures</h3>
+        {/* ── Fixtures ──────────────────────────────────────────────────── */}
+        <h3 style={s.sectionHeader}>Fixtures</h3>
 
-          {Object.keys(colors).length === 0 && (
-            <div style={{ color: '#555', fontSize: '0.85em', fontStyle: 'italic' }}>
-              No active fixtures — run a sketch that calls setFixtureColor.
-            </div>
-          )}
+        {Object.keys(colors).length === 0 && (
+          <div style={{ color: '#555', fontSize: '0.85em', fontStyle: 'italic' }}>
+            No active fixtures — run a sketch that calls setFixtureColor.
+          </div>
+        )}
 
-          {Object.values(colors).map((color) => {
-            const id = color.id
-            const isOpen = !closedFixtures.has(id)
-            const mappings = getMappings(id)
+        {Object.values(colors).map((color) => {
+          const id = color.id
+          const isOpen = !closedFixtures.has(id)
+          const mappings = getMappings(id)
 
-            return (
-              <div key={id} style={s.fixtureWrap}>
-                <Collapsible
-                  title={id}
-                  isOpen={isOpen}
-                  onToggle={() =>
-                    setClosedFixtures((prev) => {
-                      const next = new Set(prev)
-                      if (next.has(id)) next.delete(id)
-                      else next.add(id)
-                      return next
-                    })
-                  }
-                >
-                  {/* Live channel values */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
-                    {Object.entries(color.channels).map(([ch, val]) => (
+          return (
+            <div key={id} style={s.fixtureWrap}>
+              <Collapsible
+                title={id}
+                isOpen={isOpen}
+                onToggle={() =>
+                  setClosedFixtures((prev) => {
+                    const next = new Set(prev)
+                    if (next.has(id)) next.delete(id)
+                    else next.add(id)
+                    return next
+                  })
+                }
+              >
+                {/* Live channel values */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+                  {Object.entries(color.channels).map(([ch, val]) => (
+                    <span
+                      key={ch}
+                      style={{
+                        background: CHANNEL_COLORS[ch] ?? '#444',
+                        color: '#fff',
+                        fontSize: '0.75em',
+                        padding: '2px 7px',
+                        borderRadius: 3,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {ch}: {Math.round((val as number) || 0)}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Mappings list */}
+                {mappings.map((mapping, mIdx) => (
+                  <div key={mIdx} style={s.mappingWrap}>
+                    {/* Mapping header */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: 10,
+                      }}
+                    >
                       <span
-                        key={ch}
                         style={{
-                          background: CHANNEL_COLORS[ch] ?? '#444',
-                          color: '#fff',
                           fontSize: '0.75em',
-                          padding: '2px 7px',
-                          borderRadius: 3,
-                          fontVariantNumeric: 'tabular-nums',
+                          opacity: 0.5,
+                          letterSpacing: '0.08em',
+                          textTransform: 'uppercase',
                         }}
                       >
-                        {ch}: {Math.round((val as number) || 0)}
+                        Mapping {mIdx + 1}
                       </span>
-                    ))}
-                  </div>
-
-                  {/* Mappings list */}
-                  {mappings.map((mapping, mIdx) => (
-                    <div key={mIdx} style={s.mappingWrap}>
-                      {/* Mapping header */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginBottom: 10,
+                      <Button
+                        type="danger"
+                        size="slim"
+                        iconName="delete"
+                        onClick={() => {
+                          const next = mappings.filter((_, i) => i !== mIdx)
+                          setAddrInputs((prev) => {
+                            const copy = { ...prev }
+                            delete copy[`${id}-${mIdx}`]
+                            return copy
+                          })
+                          setAddSlotSelections((prev) => {
+                            const copy = { ...prev }
+                            delete copy[`${id}-${mIdx}`]
+                            return copy
+                          })
+                          applyMappings(id, next)
                         }}
                       >
-                        <span
-                          style={{
-                            fontSize: '0.75em',
-                            opacity: 0.5,
-                            letterSpacing: '0.08em',
-                            textTransform: 'uppercase',
-                          }}
-                        >
-                          Mapping {mIdx + 1}
-                        </span>
-                        <Button
-                          type="danger"
-                          size="slim"
-                          iconName="delete"
-                          onClick={() => {
-                            const next = mappings.filter((_, i) => i !== mIdx)
-                            setAddrInputs((prev) => {
-                              const copy = { ...prev }
-                              delete copy[`${id}-${mIdx}`]
-                              return copy
-                            })
-                            setAddSlotSelections((prev) => {
-                              const copy = { ...prev }
-                              delete copy[`${id}-${mIdx}`]
-                              return copy
-                            })
-                            applyMappings(id, next)
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      </div>
+                        Remove
+                      </Button>
+                    </div>
 
-                      {/* Start addresses */}
-                      <div style={{ marginBottom: 10 }}>
-                        <div style={s.fieldLabel}>Start Addresses</div>
+                    {/* Start addresses */}
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={s.fieldLabel}>Start Addresses</div>
+                      <input
+                        type="text"
+                        value={getAddrInput(id, mIdx)}
+                        placeholder="e.g. 1, 6, 11, 16"
+                        onChange={(e) =>
+                          setAddrInputs((prev) => ({
+                            ...prev,
+                            [`${id}-${mIdx}`]: e.target.value,
+                          }))
+                        }
+                        onBlur={() => {
+                          const addresses = parseAddresses(getAddrInput(id, mIdx))
+                          patchMapping(id, mIdx, { startAddresses: addresses })
+                          setAddrInputs((prev) => ({
+                            ...prev,
+                            [`${id}-${mIdx}`]: addresses.join(', '),
+                          }))
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                        }}
+                        style={s.textInput}
+                      />
+                      <div style={{ fontSize: '0.72em', opacity: 0.4, marginTop: 3 }}>
+                        Comma-separated (1–512). Each address receives the same channel bytes.
+                      </div>
+                    </div>
+
+                    {/* Channel slots */}
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={s.fieldLabel}>Channel Slots</div>
+                      <ReorderableList
+                        items={mapping.channels}
+                        onMove={(from, to) => {
+                          const channels = [...mapping.channels]
+                          const [removed] = channels.splice(from, 1)
+                          channels.splice(to, 0, removed)
+                          patchMapping(id, mIdx, { channels })
+                        }}
+                        onRemove={(sIdx) => {
+                          patchMapping(id, mIdx, {
+                            channels: mapping.channels.filter((_, i) => i !== sIdx),
+                          })
+                        }}
+                        renderItem={(slot, sIdx) => (
+                          <SlotRow
+                            slot={slot}
+                            onUpdate={(newSlot) => {
+                              const channels = mapping.channels.map((ch, i) =>
+                                i === sIdx ? newSlot : ch,
+                              )
+                              patchMapping(id, mIdx, { channels })
+                            }}
+                          />
+                        )}
+                      />
+                    </div>
+
+                    {/* Add slot */}
+                    <div style={s.addSlotRow}>
+                      <select
+                        value={getAddSlot(id, mIdx).slotType}
+                        onChange={(e) => setAddSlot(id, mIdx, { slotType: e.target.value })}
+                        style={{ ...s.select, flex: '0 0 auto' }}
+                      >
+                        {CHANNEL_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                        <option value="absolute">absolute</option>
+                        <option value="null">null (pad)</option>
+                      </select>
+
+                      {getAddSlot(id, mIdx).slotType === 'absolute' && (
                         <input
-                          type="text"
-                          value={getAddrInput(id, mIdx)}
-                          placeholder="e.g. 1, 6, 11, 16"
-                          onChange={(e) =>
-                            setAddrInputs((prev) => ({
-                              ...prev,
-                              [`${id}-${mIdx}`]: e.target.value,
-                            }))
-                          }
-                          onBlur={() => {
-                            const addresses = parseAddresses(getAddrInput(id, mIdx))
-                            patchMapping(id, mIdx, { startAddresses: addresses })
-                            setAddrInputs((prev) => ({
-                              ...prev,
-                              [`${id}-${mIdx}`]: addresses.join(', '),
-                            }))
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                          }}
-                          style={s.textInput}
+                          type="number"
+                          min={0}
+                          max={255}
+                          value={getAddSlot(id, mIdx).absVal}
+                          onChange={(e) => setAddSlot(id, mIdx, { absVal: e.target.value })}
+                          placeholder="0–255"
+                          style={{ ...s.numInput, width: 68 }}
                         />
-                        <div style={{ fontSize: '0.72em', opacity: 0.4, marginTop: 3 }}>
-                          Comma-separated (1–512). Each address receives the same channel bytes.
-                        </div>
-                      </div>
+                      )}
 
-                      {/* Channel slots */}
-                      <div style={{ marginBottom: 8 }}>
-                        <div style={s.fieldLabel}>Channel Slots</div>
-                        <ReorderableList
-                          items={mapping.channels}
-                          onMove={(from, to) => {
-                            const channels = [...mapping.channels]
-                            const [removed] = channels.splice(from, 1)
-                            channels.splice(to, 0, removed)
-                            patchMapping(id, mIdx, { channels })
-                          }}
-                          onRemove={(sIdx) => {
-                            patchMapping(id, mIdx, {
-                              channels: mapping.channels.filter((_, i) => i !== sIdx),
-                            })
-                          }}
-                          renderItem={(slot, sIdx) => (
-                            <SlotRow
-                              slot={slot}
-                              onUpdate={(newSlot) => {
-                                const channels = mapping.channels.map((ch, i) =>
-                                  i === sIdx ? newSlot : ch,
-                                )
-                                patchMapping(id, mIdx, { channels })
-                              }}
-                            />
-                          )}
-                        />
-                      </div>
-
-                      {/* Add slot */}
-                      <div style={s.addSlotRow}>
-                        <select
-                          value={getAddSlot(id, mIdx).slotType}
-                          onChange={(e) => setAddSlot(id, mIdx, { slotType: e.target.value })}
-                          style={{ ...s.select, flex: '0 0 auto' }}
-                        >
-                          {CHANNEL_TYPES.map((t) => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                          <option value="absolute">absolute</option>
-                          <option value="null">null (pad)</option>
-                        </select>
-
-                        {getAddSlot(id, mIdx).slotType === 'absolute' && (
+                      {CHANNEL_TYPES.includes(getAddSlot(id, mIdx).slotType as ChannelType) && (
+                        <>
+                          <span style={{ fontSize: '0.78em', opacity: 0.45 }}>× scale</span>
                           <input
                             type="number"
                             min={0}
-                            max={255}
-                            value={getAddSlot(id, mIdx).absVal}
-                            onChange={(e) => setAddSlot(id, mIdx, { absVal: e.target.value })}
-                            placeholder="0–255"
-                            style={{ ...s.numInput, width: 68 }}
+                            step={0.01}
+                            value={getAddSlot(id, mIdx).scale}
+                            onChange={(e) => setAddSlot(id, mIdx, { scale: e.target.value })}
+                            placeholder="optional"
+                            style={{ ...s.numInput, width: 72 }}
                           />
-                        )}
+                        </>
+                      )}
 
-                        {CHANNEL_TYPES.includes(getAddSlot(id, mIdx).slotType as ChannelType) && (
-                          <>
-                            <span style={{ fontSize: '0.78em', opacity: 0.45 }}>× scale</span>
-                            <input
-                              type="number"
-                              min={0}
-                              step={0.01}
-                              value={getAddSlot(id, mIdx).scale}
-                              onChange={(e) => setAddSlot(id, mIdx, { scale: e.target.value })}
-                              placeholder="optional"
-                              style={{ ...s.numInput, width: 72 }}
-                            />
-                          </>
-                        )}
-
-                        <Button
-                          type="primary"
-                          size="slim"
-                          iconName="add"
-                          onClick={() => {
-                            const entry = getAddSlot(id, mIdx)
-                            const slot = buildSlotFromEntry(entry)
-                            patchMapping(id, mIdx, {
-                              channels: [...mapping.channels, slot],
-                            })
-                          }}
-                        >
-                          Add slot
-                        </Button>
-                      </div>
+                      <Button
+                        type="primary"
+                        size="slim"
+                        iconName="add"
+                        onClick={() => {
+                          const entry = getAddSlot(id, mIdx)
+                          const slot = buildSlotFromEntry(entry)
+                          patchMapping(id, mIdx, {
+                            channels: [...mapping.channels, slot],
+                          })
+                        }}
+                      >
+                        Add slot
+                      </Button>
                     </div>
-                  ))}
+                  </div>
+                ))}
 
-                  <Button
-                    type="secondary"
-                    size="slim"
-                    iconName="add"
-                    onClick={() =>
-                      applyMappings(id, [...mappings, { startAddresses: [], channels: [] }])
-                    }
-                  >
-                    Add Mapping
-                  </Button>
-                </Collapsible>
+                <Button
+                  type="secondary"
+                  size="slim"
+                  iconName="add"
+                  onClick={() =>
+                    applyMappings(id, [...mappings, { startAddresses: [], channels: [] }])
+                  }
+                >
+                  Add Mapping
+                </Button>
+              </Collapsible>
+            </div>
+          )
+        })}
+
+        {/* ── Devices ───────────────────────────────────────────────────── */}
+        <h3 style={s.sectionHeader}>DMX Devices</h3>
+        <Button
+          type="neutral"
+          size="slim"
+          onClick={() => plugin.fetchDeviceInfo().then(() => forceUpdate())}
+        >
+          Refresh Devices
+        </Button>
+        <div style={{ fontSize: '0.85em', marginTop: 8 }}>
+          {devices.map((device, idx) => (
+            <div
+              key={idx}
+              style={{ marginBottom: 10, padding: 8, background: '#1a1a1a', borderRadius: 4 }}
+            >
+              <div>
+                <strong>{device.name}</strong>
               </div>
-            )
-          })}
-
-          {/* ── Devices ───────────────────────────────────────────────────── */}
-          <h3 style={s.sectionHeader}>DMX Devices</h3>
-          <Button
-            type="neutral"
-            size="slim"
-            onClick={() => plugin.fetchDeviceInfo().then(() => forceUpdate())}
-          >
-            Refresh Devices
+              {device.path && <div style={{ opacity: 0.6 }}>Path: {device.path}</div>}
+              {device.driver && <div style={{ opacity: 0.6 }}>Driver: {device.driver}</div>}
+              <div>Status: {device.status}</div>
+              {device.lastSent && <div style={{ opacity: 0.6 }}>Last Sent: {device.lastSent}</div>}
+              {device.lastData && (
+                <details>
+                  <summary>DMX Data</summary>
+                  <pre style={{ fontSize: '0.8em', overflow: 'auto', maxHeight: 160 }}>
+                    {device.lastData}
+                  </pre>
+                </details>
+              )}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <Button type="neutral" size="slim" onClick={() => plugin.logDeviceInfo()}>
+            Log Device Info
           </Button>
-          <div style={{ fontSize: '0.85em', marginTop: 8 }}>
-            {devices.map((device, idx) => (
-              <div
-                key={idx}
-                style={{ marginBottom: 10, padding: 8, background: '#1a1a1a', borderRadius: 4 }}
-              >
-                <div>
-                  <strong>{device.name}</strong>
-                </div>
-                {device.path && <div style={{ opacity: 0.6 }}>Path: {device.path}</div>}
-                {device.driver && <div style={{ opacity: 0.6 }}>Driver: {device.driver}</div>}
-                <div>Status: {device.status}</div>
-                {device.lastSent && (
-                  <div style={{ opacity: 0.6 }}>Last Sent: {device.lastSent}</div>
-                )}
-                {device.lastData && (
-                  <details>
-                    <summary>DMX Data</summary>
-                    <pre style={{ fontSize: '0.8em', overflow: 'auto', maxHeight: 160 }}>
-                      {device.lastData}
-                    </pre>
-                  </details>
-                )}
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <Button type="neutral" size="slim" onClick={() => plugin.logDeviceInfo()}>
-              Log Device Info
-            </Button>
-            <Button type="neutral" size="slim" onClick={() => plugin.testDMX()}>
-              Test DMX (Full White)
-            </Button>
-          </div>
-        </PanelBody>
-      </Panel>
+          <Button type="neutral" size="slim" onClick={() => plugin.testDMX()}>
+            Test DMX (Full White)
+          </Button>
+        </div>
+      </div>
     </HedronErrorBoundary>
   )
 }

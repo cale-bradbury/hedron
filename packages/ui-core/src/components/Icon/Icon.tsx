@@ -25,6 +25,7 @@ export type IconName =
   | 'fullscreen'
   | 'image'
   | 'info'
+  | 'lightbulb'
   | 'mood'
   | 'more_horiz'
   | 'movie'
@@ -42,6 +43,7 @@ export type IconName =
 
 export const sketchIcon: IconName = 'token'
 export const sceneIcon: IconName = 'view_in_ar'
+export const dmxIcon: IconName = 'lightbulb'
 export const paramIcon: IconName = 'tune'
 export const inputIcon: IconName = 'cable'
 export const fileIcon: IconName = 'draft'

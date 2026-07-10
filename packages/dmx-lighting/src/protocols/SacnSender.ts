@@ -7,7 +7,10 @@ export class SacnSender {
     // Initialize sACN connection here
   }
 
-  sendDMX(colors: Record<string, FixtureColor>, opts: { brightness: number; lerpSpeed: number; lerpMode: string }) {
+  sendDMX(
+    colors: Record<string, FixtureColor>,
+    opts: { brightness: number; lerpSpeed: number; lerpMode: string },
+  ) {
     // TODO: Implement sACN DMX packet sending
     console.log('[sACN] Sending DMX:', colors, opts)
   }
