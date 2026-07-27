@@ -207,8 +207,12 @@ class DmxService {
 
       dev.open()
 
-      // Allow libusb to detach the macOS Apple DriverKit FTDI DEXT
-      dev.setAutoDetachKernelDriver(true)
+      // Allow libusb to detach the macOS Apple DriverKit FTDI DEXT.
+      // Windows has no kernel-driver-detach concept (the driver is swapped for
+      // WinUSB via Zadig instead) and throws LIBUSB_ERROR_NOT_SUPPORTED here.
+      if (process.platform !== 'win32') {
+        dev.setAutoDetachKernelDriver(true)
+      }
 
       // Reset chip, configure 250 kbaud, 8N2
       await this.ctrlOut(dev, FTDI_SIO_RESET, 0x0000, 0x0000)
