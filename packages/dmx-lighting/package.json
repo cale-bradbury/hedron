@@ -20,10 +20,11 @@
     "url": "git+https://github.com/nudibranchrecords/hedron.git"
   },
   "scripts": {
-    "dev": "tsup src/index.ts --watch --dts --format esm --out-dir dist",
+    "dev": "tsup src/index.ts src/core.ts --watch --dts --format esm --out-dir dist",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "build": "tsup src/index.ts --dts --format esm --out-dir dist",
-    "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix"
+    "build": "tsup src/index.ts src/core.ts --dts --format esm --out-dir dist",
+    "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
+    "verify": "pnpm build && node scripts/verify-patch.mjs"
   },
   "dependencies": {
     "@hedron-gl/engine": "^1.0.0-alpha.4",

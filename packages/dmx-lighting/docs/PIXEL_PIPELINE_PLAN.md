@@ -1,6 +1,6 @@
 # DMX Pixel Pipeline — Architecture & Implementation Plan
 
-Status: proposed. Supersedes the "Next phase" section of `../DMX.md`.
+Status: phases 0 and 1 implemented; 2 onward proposed. Supersedes the "Next phase" section of `../DMX.md`.
 
 ## Why
 
@@ -175,7 +175,7 @@ it unscaled express that with a slot `scale` or an `absolute`).
 
 Each phase leaves the system working and shippable.
 
-### Phase 0 — Transport and buffers
+### Phase 0 — Transport and buffers  ✅ done
 
 No user-visible change; unblocks everything after it.
 
@@ -196,7 +196,7 @@ No user-visible change; unblocks everything after it.
 **Done when:** the existing pot-light sketch behaves identically, with no JSON on the hot
 path and no object graph crossing IPC.
 
-### Phase 1 — Core model, compositor, migration
+### Phase 1 — Core model, compositor, migration  ✅ done
 
 1. Add the `Source` registry, `FixtureProfile`, `FixtureMode`, `PatchEntry`, and a minimal
    `Tap` (offset / count / forward only).

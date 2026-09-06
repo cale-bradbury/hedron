@@ -1,5 +1,4 @@
-export { DmxLightingPlugin } from './DmxLightingPlugin'
-export { DmxLightingGlobalPanel } from './DmxLightingGlobalPanel'
+// Engine- and React-free surface, so the compositor can run in Node for verification.
 export {
   PixelSource,
   SourceRegistry,
@@ -7,12 +6,11 @@ export {
   PIXEL_STRIDE,
   FIELD_OFFSET,
 } from './PixelSource'
-export { compilePatch, findAddressConflicts } from './PatchCompiler'
+export { compilePatch, executePatch, findAddressConflicts } from './PatchCompiler'
 export type { CompiledPatch } from './PatchCompiler'
 export { DEFAULT_PROFILES, findProfile, findMode, modeChannelCount, makeEntryId } from './profiles'
 export type { FixtureProfile, FixtureMode, FixtureShape, PatchEntry, Tap } from './profiles'
 export { UniverseSet } from './UniverseSet'
-export { UniverseSender, SEND_INTERVAL_MS } from './UniverseSender'
 export { DMX_UNIVERSE_SIZE, toAddress, parseAddressList, formatAddressList } from './address'
 export type { Address } from './address'
 export type * from './types'

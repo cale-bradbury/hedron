@@ -8,14 +8,17 @@ import {
   NodeContainer,
 } from '@hedron-gl/ui-core'
 import { HedronEngine } from '@hedron-gl/engine'
-import {
-  DmxLightingPlugin,
-  FixtureColor,
-  FixtureMapping,
-  ChannelSlot,
-  ChannelType,
-} from './DmxLightingPlugin'
+import { DmxLightingPlugin, ChannelSlot, ChannelType } from './DmxLightingPlugin'
 import { formatAddressList, parseAddressList } from './address'
+import { PIXEL_STRIDE } from './PixelSource'
+import {
+  FixtureProfile,
+  PatchEntry,
+  findMode,
+  findProfile,
+  makeEntryId,
+  modeChannelCount,
+} from './profiles'
 
 export interface DmxLightingGlobalPanelProps {
   engine: HedronEngine
@@ -32,6 +35,9 @@ const CHANNEL_COLORS: Record<string, string> = {
   white: '#707070',
   intensity: '#8a6e00',
 }
+
+/** Swatches beyond this are elided; long strips stay readable without a huge DOM. */
+const MAX_PREVIEW_SWATCHES = 96
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -53,27 +59,28 @@ function buildSlotFromEntry(entry: AddSlotEntry): ChannelSlot {
   return field
 }
 
+function entryPixelCount(entry: PatchEntry, fallback: number): number {
+  return Math.max(0, Math.floor(entry.tap.count ?? fallback))
+}
+
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ engine }) => {
   const plugin = engine.getPlugin<DmxLightingPlugin>(DmxLightingPlugin.ID)
-  const store = plugin && engine ? engine.getStore() : null
-
-  const [paramValues, setParamValues] = React.useState(store ? store.getState().paramValues : {})
-  React.useEffect(() => {
-    if (!store) return
-    return store.subscribe(
-      (state) => state.paramValues,
-      (nv) => setParamValues(nv),
-    )
-  }, [store])
 
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0)
-  const [closedFixtures, setClosedFixtures] = React.useState<Set<string>>(new Set())
+  const [closedEntries, setClosedEntries] = React.useState<Set<string>>(new Set())
   const [addrInputs, setAddrInputs] = React.useState<Record<string, string>>({})
   const [addSlotSelections, setAddSlotSelections] = React.useState<Record<string, AddSlotEntry>>({})
 
-  if (!plugin || !engine || !store) {
+  // The patch is edited through the plugin rather than the store, so poll for changes
+  // the sketch API makes (auto-patching a new fixture, for instance).
+  React.useEffect(() => {
+    const timer = setInterval(forceUpdate, 500)
+    return () => clearInterval(timer)
+  }, [])
+
+  if (!plugin || !engine) {
     return (
       <div style={{ color: 'red', padding: 16 }}>
         DMX Lighting plugin not initialized correctly.
@@ -81,54 +88,108 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
     )
   }
 
-  // ── Mapping helpers ──────────────────────────────────────────────────────
+  const profiles = plugin.getProfiles()
+  const patch = plugin.getPatch()
+  const sources = plugin.getSources()
+  const devices = plugin.getDevices()
+  const conflicts = plugin.getAddressConflicts()
 
-  // Read mappings from the store (source of truth) so the panel reflects persisted
-  // config even if the plugin's in-memory state gets out of sync.
-  const getMappings = (id: string): FixtureMapping[] => {
-    const stored = paramValues[`${plugin.id}-fixture-${id}-mappings`]
-    if (stored) {
-      try {
-        return JSON.parse(stored as string) as FixtureMapping[]
-      } catch (_) {
-        /* corrupt value, fall through */
-      }
-    }
-    return plugin.getColors()[id]?.mappings ?? []
-  }
-
-  const applyMappings = (id: string, mappings: FixtureMapping[]) => {
-    plugin.setFixtureMappings(id, mappings)
+  const updateEntry = (id: string, changes: Partial<PatchEntry>) => {
+    plugin.setPatch(patch.map((e) => (e.id === id ? { ...e, ...changes } : e)))
     forceUpdate()
   }
 
-  const patchMapping = (id: string, mIdx: number, patch: Partial<FixtureMapping>) => {
-    const next = getMappings(id).map((m, i) => (i === mIdx ? { ...m, ...patch } : m))
-    applyMappings(id, next)
+  const updateProfile = (profileId: string, next: FixtureProfile) => {
+    plugin.setProfiles(profiles.map((p) => (p.id === profileId ? next : p)))
+    forceUpdate()
   }
 
-  const getAddrInput = (id: string, mIdx: number): string => {
-    const key = `${id}-${mIdx}`
-    return key in addrInputs
-      ? addrInputs[key]
-      : formatAddressList(getMappings(id)[mIdx]?.startAddresses ?? [])
-  }
+  const getAddSlot = (key: string): AddSlotEntry => addSlotSelections[key] ?? DEFAULT_ADD_SLOT
 
-  const getAddSlot = (id: string, mIdx: number): AddSlotEntry =>
-    addSlotSelections[`${id}-${mIdx}`] ?? DEFAULT_ADD_SLOT
-
-  const setAddSlot = (id: string, mIdx: number, update: Partial<AddSlotEntry>) => {
-    const key = `${id}-${mIdx}`
+  const setAddSlot = (key: string, update: Partial<AddSlotEntry>) => {
     setAddSlotSelections((prev) => ({
       ...prev,
       [key]: { ...(prev[key] ?? DEFAULT_ADD_SLOT), ...update },
     }))
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  const renderSlotEditor = (
+    key: string,
+    label: string,
+    slots: ChannelSlot[],
+    onChange: (slots: ChannelSlot[]) => void,
+  ) => (
+    <div style={{ marginBottom: 8 }}>
+      <div style={s.fieldLabel}>{label}</div>
+      <ReorderableList
+        items={slots}
+        onMove={(from: number, to: number) => {
+          const next = [...slots]
+          const [removed] = next.splice(from, 1)
+          next.splice(to, 0, removed)
+          onChange(next)
+        }}
+        onRemove={(index: number) => onChange(slots.filter((_, i) => i !== index))}
+        renderItem={(slot: ChannelSlot, index: number) => (
+          <SlotRow
+            slot={slot}
+            onUpdate={(newSlot) => onChange(slots.map((c, i) => (i === index ? newSlot : c)))}
+          />
+        )}
+      />
+      <div style={s.addSlotRow}>
+        <select
+          value={getAddSlot(key).slotType}
+          onChange={(e) => setAddSlot(key, { slotType: e.target.value })}
+          style={{ ...s.select, flex: '0 0 auto' }}
+        >
+          {CHANNEL_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+          <option value="absolute">absolute</option>
+          <option value="null">null (pad)</option>
+        </select>
 
-  const colors = plugin.getColors() as Record<string, FixtureColor>
-  const devices = plugin.getDevices()
+        {getAddSlot(key).slotType === 'absolute' && (
+          <input
+            type="number"
+            min={0}
+            max={255}
+            value={getAddSlot(key).absVal}
+            onChange={(e) => setAddSlot(key, { absVal: e.target.value })}
+            placeholder="0–255"
+            style={{ ...s.numInput, width: 68 }}
+          />
+        )}
+
+        {CHANNEL_TYPES.includes(getAddSlot(key).slotType as ChannelType) && (
+          <>
+            <span style={{ fontSize: '0.78em', opacity: 0.45 }}>× scale</span>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={getAddSlot(key).scale}
+              onChange={(e) => setAddSlot(key, { scale: e.target.value })}
+              placeholder="optional"
+              style={{ ...s.numInput, width: 72 }}
+            />
+          </>
+        )}
+
+        <Button
+          type="primary"
+          size="slim"
+          iconName="add"
+          onClick={() => onChange([...slots, buildSlotFromEntry(getAddSlot(key))])}
+        >
+          Add slot
+        </Button>
+      </div>
+    </div>
+  )
 
   return (
     <HedronErrorBoundary>
@@ -140,235 +201,289 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
           <NodeContainer nodeId={`${plugin.id}-global-lerpMode`} />
         </ControlGrid>
 
-        {/* ── Fixtures ──────────────────────────────────────────────────── */}
-        <h3 style={s.sectionHeader}>Fixtures</h3>
+        {/* ── Sources ───────────────────────────────────────────────────── */}
+        <h3 style={s.sectionHeader}>Sources</h3>
 
-        {Object.keys(colors).length === 0 && (
-          <div style={{ color: '#555', fontSize: '0.85em', fontStyle: 'italic' }}>
-            No active fixtures — run a sketch that calls setFixtureColor.
+        {sources.length === 0 && (
+          <div style={s.emptyNote}>
+            No sources — run a sketch that calls hedron.lighting.source() or setFixtureColor().
           </div>
         )}
 
-        {Object.values(colors).map((color) => {
-          const id = color.id
-          const isOpen = !closedFixtures.has(id)
-          const mappings = getMappings(id)
+        {sources.map((source) => (
+          <SourcePreview key={source.id} plugin={plugin} sourceId={source.id} />
+        ))}
+
+        {/* ── Patch ─────────────────────────────────────────────────────── */}
+        <h3 style={s.sectionHeader}>Patch</h3>
+
+        {conflicts.length > 0 && (
+          <div style={s.warning}>
+            {conflicts.length} address{conflicts.length === 1 ? '' : 'es'} written by more than one
+            entry, first at {conflicts[0].universe}:{conflicts[0].channel}
+          </div>
+        )}
+
+        {patch.length === 0 && <div style={s.emptyNote}>No patch entries yet.</div>}
+
+        {patch.map((entry) => {
+          const profile = findProfile(profiles, entry.profileId)
+          const mode = profile ? findMode(profile, entry.modeName) : undefined
+          const isOpen = !closedEntries.has(entry.id)
+          const pixels = entryPixelCount(entry, mode?.pixelCount ?? 1)
+          const span = mode ? modeChannelCount(mode, pixels) : 0
+          const first = entry.addresses[0]
 
           return (
-            <div key={id} style={s.fixtureWrap}>
+            <div key={entry.id} style={s.fixtureWrap}>
               <Collapsible
-                title={id}
+                title={`${entry.name || entry.id} — ${formatAddressList(entry.addresses) || 'unpatched'}${
+                  span ? ` (${span}ch)` : ''
+                }`}
                 isOpen={isOpen}
                 onToggle={() =>
-                  setClosedFixtures((prev) => {
+                  setClosedEntries((prev) => {
                     const next = new Set(prev)
-                    if (next.has(id)) next.delete(id)
-                    else next.add(id)
+                    if (next.has(entry.id)) next.delete(entry.id)
+                    else next.add(entry.id)
                     return next
                   })
                 }
               >
-                {/* Live channel values */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
-                  {Object.entries(color.channels).map(([ch, val]) => (
-                    <span
-                      key={ch}
-                      style={{
-                        background: CHANNEL_COLORS[ch] ?? '#444',
-                        color: '#fff',
-                        fontSize: '0.75em',
-                        padding: '2px 7px',
-                        borderRadius: 3,
-                        fontVariantNumeric: 'tabular-nums',
-                      }}
-                    >
-                      {ch}: {Math.round((val as number) || 0)}
-                    </span>
-                  ))}
-                </div>
-
-                {/* Mappings list */}
-                {mappings.map((mapping, mIdx) => (
-                  <div key={mIdx} style={s.mappingWrap}>
-                    {/* Mapping header */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: 10,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: '0.75em',
-                          opacity: 0.5,
-                          letterSpacing: '0.08em',
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        Mapping {mIdx + 1}
-                      </span>
-                      <Button
-                        type="danger"
-                        size="slim"
-                        iconName="delete"
-                        onClick={() => {
-                          const next = mappings.filter((_, i) => i !== mIdx)
-                          setAddrInputs((prev) => {
-                            const copy = { ...prev }
-                            delete copy[`${id}-${mIdx}`]
-                            return copy
-                          })
-                          setAddSlotSelections((prev) => {
-                            const copy = { ...prev }
-                            delete copy[`${id}-${mIdx}`]
-                            return copy
-                          })
-                          applyMappings(id, next)
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-
-                    {/* Start addresses */}
-                    <div style={{ marginBottom: 10 }}>
-                      <div style={s.fieldLabel}>Start Addresses</div>
+                <div style={s.mappingWrap}>
+                  <div style={s.grid2}>
+                    <div>
+                      <div style={s.fieldLabel}>Name</div>
                       <input
                         type="text"
-                        value={getAddrInput(id, mIdx)}
-                        placeholder="e.g. 1, 6, 11, 16"
-                        onChange={(e) =>
-                          setAddrInputs((prev) => ({
-                            ...prev,
-                            [`${id}-${mIdx}`]: e.target.value,
-                          }))
-                        }
-                        onBlur={() => {
-                          const addresses = parseAddressList(getAddrInput(id, mIdx))
-                          patchMapping(id, mIdx, { startAddresses: addresses })
-                          setAddrInputs((prev) => ({
-                            ...prev,
-                            [`${id}-${mIdx}`]: formatAddressList(addresses),
-                          }))
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                        }}
+                        value={entry.name ?? ''}
+                        onChange={(e) => updateEntry(entry.id, { name: e.target.value })}
                         style={s.textInput}
                       />
-                      <div style={{ fontSize: '0.72em', opacity: 0.4, marginTop: 3 }}>
-                        Comma-separated (1–512), optionally universe:channel. Each address
-                        receives the same channel bytes.
-                      </div>
                     </div>
-
-                    {/* Channel slots */}
-                    <div style={{ marginBottom: 8 }}>
-                      <div style={s.fieldLabel}>Channel Slots</div>
-                      <ReorderableList
-                        items={mapping.channels}
-                        onMove={(from, to) => {
-                          const channels = [...mapping.channels]
-                          const [removed] = channels.splice(from, 1)
-                          channels.splice(to, 0, removed)
-                          patchMapping(id, mIdx, { channels })
-                        }}
-                        onRemove={(sIdx) => {
-                          patchMapping(id, mIdx, {
-                            channels: mapping.channels.filter((_, i) => i !== sIdx),
-                          })
-                        }}
-                        renderItem={(slot, sIdx) => (
-                          <SlotRow
-                            slot={slot}
-                            onUpdate={(newSlot) => {
-                              const channels = mapping.channels.map((ch, i) =>
-                                i === sIdx ? newSlot : ch,
-                              )
-                              patchMapping(id, mIdx, { channels })
-                            }}
-                          />
-                        )}
+                    <div>
+                      <div style={s.fieldLabel}>Source</div>
+                      <input
+                        type="text"
+                        list="dmx-source-ids"
+                        value={entry.tap.source}
+                        onChange={(e) =>
+                          updateEntry(entry.id, { tap: { ...entry.tap, source: e.target.value } })
+                        }
+                        style={s.textInput}
                       />
                     </div>
+                  </div>
 
-                    {/* Add slot */}
-                    <div style={s.addSlotRow}>
-                      <select
-                        value={getAddSlot(id, mIdx).slotType}
-                        onChange={(e) => setAddSlot(id, mIdx, { slotType: e.target.value })}
-                        style={{ ...s.select, flex: '0 0 auto' }}
-                      >
-                        {CHANNEL_TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                        <option value="absolute">absolute</option>
-                        <option value="null">null (pad)</option>
-                      </select>
-
-                      {getAddSlot(id, mIdx).slotType === 'absolute' && (
-                        <input
-                          type="number"
-                          min={0}
-                          max={255}
-                          value={getAddSlot(id, mIdx).absVal}
-                          onChange={(e) => setAddSlot(id, mIdx, { absVal: e.target.value })}
-                          placeholder="0–255"
-                          style={{ ...s.numInput, width: 68 }}
-                        />
-                      )}
-
-                      {CHANNEL_TYPES.includes(getAddSlot(id, mIdx).slotType as ChannelType) && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={s.fieldLabel}>Addresses</div>
+                    <input
+                      type="text"
+                      value={
+                        addrInputs[entry.id] !== undefined
+                          ? addrInputs[entry.id]
+                          : formatAddressList(entry.addresses)
+                      }
+                      placeholder="e.g. 1, 6, 2:14"
+                      onChange={(e) =>
+                        setAddrInputs((prev) => ({ ...prev, [entry.id]: e.target.value }))
+                      }
+                      onBlur={() => {
+                        const addresses = parseAddressList(
+                          addrInputs[entry.id] ?? formatAddressList(entry.addresses),
+                        )
+                        updateEntry(entry.id, { addresses })
+                        setAddrInputs((prev) => {
+                          const copy = { ...prev }
+                          delete copy[entry.id]
+                          return copy
+                        })
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                      }}
+                      style={s.textInput}
+                    />
+                    <div style={s.hint}>
+                      Comma-separated (1–512), optionally universe:channel. Each address receives
+                      the same bytes.
+                      {first && span > 0 && (
                         <>
-                          <span style={{ fontSize: '0.78em', opacity: 0.45 }}>× scale</span>
-                          <input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            value={getAddSlot(id, mIdx).scale}
-                            onChange={(e) => setAddSlot(id, mIdx, { scale: e.target.value })}
-                            placeholder="optional"
-                            style={{ ...s.numInput, width: 72 }}
-                          />
+                          {' '}
+                          First instance covers {first.universe}:{first.channel}–
+                          {first.channel + span - 1}.
                         </>
                       )}
-
-                      <Button
-                        type="primary"
-                        size="slim"
-                        iconName="add"
-                        onClick={() => {
-                          const entry = getAddSlot(id, mIdx)
-                          const slot = buildSlotFromEntry(entry)
-                          patchMapping(id, mIdx, {
-                            channels: [...mapping.channels, slot],
-                          })
-                        }}
-                      >
-                        Add slot
-                      </Button>
                     </div>
                   </div>
-                ))}
 
-                <Button
-                  type="secondary"
-                  size="slim"
-                  iconName="add"
-                  onClick={() =>
-                    applyMappings(id, [...mappings, { startAddresses: [], channels: [] }])
-                  }
-                >
-                  Add Mapping
-                </Button>
+                  <div style={{ ...s.grid3, marginTop: 10 }}>
+                    <div>
+                      <div style={s.fieldLabel}>Profile</div>
+                      <select
+                        value={entry.profileId}
+                        onChange={(e) => {
+                          const next = findProfile(profiles, e.target.value)
+                          updateEntry(entry.id, {
+                            profileId: e.target.value,
+                            modeName: next?.modes[0]?.name ?? 'default',
+                          })
+                        }}
+                        style={s.select}
+                      >
+                        {profiles.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <div style={s.fieldLabel}>Pixels</div>
+                      <input
+                        type="number"
+                        min={0}
+                        max={512}
+                        value={pixels}
+                        onChange={(e) =>
+                          updateEntry(entry.id, {
+                            tap: { ...entry.tap, count: parseInt(e.target.value, 10) || 0 },
+                          })
+                        }
+                        style={{ ...s.numInput, width: '100%', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <div style={s.fieldLabel}>Source Offset</div>
+                      <input
+                        type="number"
+                        min={0}
+                        value={entry.tap.offset ?? 0}
+                        onChange={(e) =>
+                          updateEntry(entry.id, {
+                            tap: { ...entry.tap, offset: parseInt(e.target.value, 10) || 0 },
+                          })
+                        }
+                        style={{ ...s.numInput, width: '100%', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+
+                  {profile && profile.modes.length > 1 && (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={s.fieldLabel}>Mode</div>
+                      <select
+                        value={entry.modeName}
+                        onChange={(e) => updateEntry(entry.id, { modeName: e.target.value })}
+                        style={s.select}
+                      >
+                        {profile.modes.map((m) => (
+                          <option key={m.name} value={m.name}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {profile && mode && (
+                    <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #222' }}>
+                      <div style={s.profileNote}>
+                        Editing profile <strong>{profile.name}</strong> — shared by every entry
+                        using it.
+                        <Button
+                          type="neutral"
+                          size="slim"
+                          onClick={() => {
+                            const copy: FixtureProfile = {
+                              ...profile,
+                              id: `${profile.id}-copy-${Math.random().toString(36).slice(2, 6)}`,
+                              name: `${profile.name} copy`,
+                              modes: profile.modes.map((m) => ({ ...m })),
+                            }
+                            plugin.setProfiles([...profiles, copy])
+                            updateEntry(entry.id, { profileId: copy.id })
+                          }}
+                        >
+                          Duplicate
+                        </Button>
+                      </div>
+
+                      {renderSlotEditor(
+                        `${entry.id}-pixel`,
+                        'Pixel Channels (repeated per pixel)',
+                        mode.pixel,
+                        (slots) =>
+                          updateProfile(profile.id, {
+                            ...profile,
+                            modes: profile.modes.map((m) =>
+                              m.name === mode.name ? { ...m, pixel: slots } : m,
+                            ),
+                          }),
+                      )}
+
+                      {renderSlotEditor(
+                        `${entry.id}-header`,
+                        'Header Channels (once, before the pixels)',
+                        mode.header ?? [],
+                        (slots) =>
+                          updateProfile(profile.id, {
+                            ...profile,
+                            modes: profile.modes.map((m) =>
+                              m.name === mode.name ? { ...m, header: slots } : m,
+                            ),
+                          }),
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: 10 }}>
+                    <Button
+                      type="danger"
+                      size="slim"
+                      iconName="delete"
+                      onClick={() => {
+                        plugin.setPatch(patch.filter((e) => e.id !== entry.id))
+                        forceUpdate()
+                      }}
+                    >
+                      Remove Entry
+                    </Button>
+                  </div>
+                </div>
               </Collapsible>
             </div>
           )
         })}
+
+        <datalist id="dmx-source-ids">
+          {sources.map((source) => (
+            <option key={source.id} value={source.id} />
+          ))}
+        </datalist>
+
+        <Button
+          type="secondary"
+          size="slim"
+          iconName="add"
+          onClick={() => {
+            const profile = profiles[0]
+            plugin.setPatch([
+              ...patch,
+              {
+                id: makeEntryId(),
+                name: `Fixture ${patch.length + 1}`,
+                profileId: profile?.id ?? 'par-rgbwi',
+                modeName: profile?.modes[0]?.name ?? '5ch RGBWI',
+                addresses: [],
+                tap: { source: sources[0]?.id ?? '' },
+              },
+            ])
+            forceUpdate()
+          }}
+        >
+          Add Patch Entry
+        </Button>
 
         {/* ── Devices ───────────────────────────────────────────────────── */}
         <h3 style={s.sectionHeader}>DMX Devices</h3>
@@ -413,6 +528,62 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
         </div>
       </div>
     </HedronErrorBoundary>
+  )
+}
+
+// ─── SourcePreview ────────────────────────────────────────────────────────────
+
+interface SourcePreviewProps {
+  plugin: DmxLightingPlugin
+  sourceId: string
+}
+
+/** Owns its own refresh so live swatches don't re-render the whole panel. */
+function SourcePreview({ plugin, sourceId }: SourcePreviewProps) {
+  const [, tick] = React.useReducer((x) => x + 1, 0)
+
+  React.useEffect(() => {
+    const timer = setInterval(tick, 100)
+    return () => clearInterval(timer)
+  }, [])
+
+  const source = plugin.getSources().find((s) => s.id === sourceId)
+  if (!source) return null
+
+  const shown = Math.min(source.pixelCount, MAX_PREVIEW_SWATCHES)
+  const swatches: React.ReactNode[] = []
+  for (let i = 0; i < shown; i++) {
+    const o = i * PIXEL_STRIDE
+    const r = Math.round(source.current[o])
+    const g = Math.round(source.current[o + 1])
+    const b = Math.round(source.current[o + 2])
+    const w = Math.round(source.current[o + 3])
+    swatches.push(
+      <div
+        key={i}
+        title={`${i}: r${r} g${g} b${b} w${w} i${Math.round(source.current[o + 4])}`}
+        style={{
+          flex: '1 1 6px',
+          minWidth: 4,
+          height: 18,
+          background: `rgb(${Math.min(255, r + w)}, ${Math.min(255, g + w)}, ${Math.min(255, b + w)})`,
+        }}
+      />,
+    )
+  }
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={s.sourceHeader}>
+        <span>{source.id}</span>
+        <span style={{ opacity: 0.5 }}>
+          {source.pixelCount}px{shown < source.pixelCount ? ` (first ${shown} shown)` : ''}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 1, background: '#000', padding: 1, borderRadius: 3 }}>
+        {swatches}
+      </div>
+    </div>
   )
 }
 
@@ -509,29 +680,9 @@ function SlotRow({ slot, onUpdate }: SlotRowProps) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = {
-  row: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  } as React.CSSProperties,
-
-  label: {
-    width: 80,
-    fontSize: '0.85em',
-    flexShrink: 0,
-    opacity: 0.8,
-  } as React.CSSProperties,
-
-  rangeVal: {
-    minWidth: 36,
-    textAlign: 'right' as const,
-    fontSize: '0.85em',
-    fontVariantNumeric: 'tabular-nums',
-  } as React.CSSProperties,
-
   select: {
-    flex: 1,
+    width: '100%',
+    boxSizing: 'border-box' as const,
     background: 'var(--bgColorDark4, #111)',
     color: 'inherit',
     border: '1px solid #333',
@@ -567,6 +718,15 @@ const s = {
     textTransform: 'uppercase' as const,
     letterSpacing: '0.1em',
     opacity: 0.6,
+  } as React.CSSProperties,
+
+  sourceHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: '0.75em',
+    opacity: 0.75,
+    marginBottom: 3,
+    fontFamily: 'monospace',
   } as React.CSSProperties,
 
   fixtureWrap: {
@@ -613,5 +773,49 @@ const s = {
     fontSize: '0.78em',
     opacity: 0.4,
     flexShrink: 0,
+  } as React.CSSProperties,
+
+  grid2: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 8,
+  } as React.CSSProperties,
+
+  grid3: {
+    display: 'grid',
+    gridTemplateColumns: '2fr 1fr 1fr',
+    gap: 8,
+  } as React.CSSProperties,
+
+  hint: {
+    fontSize: '0.72em',
+    opacity: 0.4,
+    marginTop: 3,
+  } as React.CSSProperties,
+
+  emptyNote: {
+    color: '#555',
+    fontSize: '0.85em',
+    fontStyle: 'italic',
+  } as React.CSSProperties,
+
+  warning: {
+    fontSize: '0.78em',
+    color: '#d8a13a',
+    background: 'rgba(216,161,58,0.08)',
+    border: '1px solid rgba(216,161,58,0.3)',
+    borderRadius: 4,
+    padding: '5px 8px',
+    marginBottom: 8,
+  } as React.CSSProperties,
+
+  profileNote: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    fontSize: '0.75em',
+    opacity: 0.6,
+    marginBottom: 8,
   } as React.CSSProperties,
 }

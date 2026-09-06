@@ -2,7 +2,9 @@ import { HedronEngine, IPlugin } from '@hedron-gl/engine'
 import { dmxIcon } from '@hedron-gl/ui-core'
 import { globalOptionNodesConfig } from './DmxLightingConfig'
 import { toAddress } from './address'
-import { resolveSlot } from './channelSlots'
+import { PixelSource, SourceRegistry } from './PixelSource'
+import { compilePatch, CompiledPatch, executePatch, findAddressConflicts } from './PatchCompiler'
+import { DEFAULT_PROFILES, FixtureProfile, makeEntryId, PatchEntry } from './profiles'
 import { UniverseSet } from './UniverseSet'
 import { UniverseSender, FrameContext } from './UniverseSender'
 import { ArtNetSender } from './protocols/ArtNetSender'
@@ -14,13 +16,14 @@ import type {
   DmxDeviceInfo,
   DmxProtocol,
   FixtureChannels,
-  FixtureColor,
   FixtureMapping,
   FixtureMappingInput,
   LerpMode,
 } from './types'
 
 export type { Address } from './address'
+export { PixelSource, SourceRegistry } from './PixelSource'
+export * from './profiles'
 export type {
   ChannelSlot,
   ChannelType,
@@ -44,14 +47,23 @@ declare global {
     hedron?: {
       engine: HedronEngine
       lighting: {
+        /** Creates or resizes a named pixel buffer and returns it for direct writes. */
+        source: (id: string, pixelCount?: number) => PixelSource
+        /** Convenience for a single-pixel source. */
+        setColor: (
+          id: string,
+          r: number,
+          g: number,
+          b: number,
+          w?: number,
+          intensity?: number,
+        ) => void
         setFixtureColor: (
           id: string,
           channels: FixtureChannels,
-          options?: {
-            mappings?: FixtureMappingInput[]
-          },
+          options?: { mappings?: FixtureMappingInput[] },
         ) => void
-        setFixtureMappings: (id: string, mappings: FixtureMapping[]) => void
+        setFixtureMappings: (id: string, mappings: FixtureMappingInput[]) => void
       }
     }
   }
@@ -62,9 +74,10 @@ export interface DmxLightingState {
   brightness: number
   lerpSpeed: number
   lerpMode: LerpMode
-  colors: Record<string, FixtureColor>
   devices: DmxDeviceInfo[]
 }
+
+const SCHEMA_VERSION = '1'
 
 /** Accepts the legacy `startAddresses: number[]` shape persisted before universes existed. */
 function normalizeMappings(raw: unknown): FixtureMapping[] {
@@ -89,12 +102,22 @@ export class DmxLightingPlugin implements IPlugin {
   public readonly optionNodesConfig = []
 
   private engine: HedronEngine
-  private colors: Record<string, FixtureColor> = {}
+  private sources = new SourceRegistry()
+  private profiles: FixtureProfile[] = [...DEFAULT_PROFILES]
+  private patch: PatchEntry[] = []
+  private patchedSources = new Set<string>()
   private devices: DmxDeviceInfo[] = []
   private universes = new UniverseSet()
   private artnetSender = new ArtNetSender()
   private sacnSender = new SacnSender()
   private sender: UniverseSender
+
+  private compiled: CompiledPatch | null = null
+  private patchRevision = 0
+  private compiledPatchRevision = -1
+  private compiledSourceRevision = -1
+  private lastProfilesRaw = ''
+  private lastPatchRaw = ''
 
   constructor(engine: HedronEngine) {
     this.engine = engine
@@ -104,128 +127,83 @@ export class DmxLightingPlugin implements IPlugin {
       this.artnetSender,
       this.sacnSender,
     )
-    // The fixed-rate loop composites and ships every tick, so global option changes reach
-    // the hardware even when the sketch is paused — no store subscription needed.
     this.sender.start()
   }
 
+  // ── Store keys ────────────────────────────────────────────────────────────
+
+  private get profilesKey(): string {
+    return `${this.id}-profiles`
+  }
+
+  private get patchKey(): string {
+    return `${this.id}-patch`
+  }
+
+  private get versionKey(): string {
+    return `${this.id}-schema-version`
+  }
+
+  // ── Sketch API ────────────────────────────────────────────────────────────
+
+  /** Creates or resizes a named pixel buffer. Sketches write into `.target`. */
+  public source(id: string, pixelCount?: number): PixelSource {
+    return this.sources.ensure(id, pixelCount)
+  }
+
+  public setColor(id: string, r: number, g: number, b: number, w = 0, intensity = 255): void {
+    this.sources.ensure(id, 1).set(0, r, g, b, w, intensity)
+  }
+
+  /**
+   * Legacy single-colour API. Writes pixel 0 of the source named after the fixture, and
+   * auto-patches from the call-site mappings the first time the fixture is seen.
+   */
   public setFixtureColor(
     id: string,
     channels: FixtureChannels,
-    options?: {
-      mappings?: FixtureMappingInput[]
-    },
-  ) {
-    if (this.colors[id]) {
-      // Mappings are intentionally NOT updated from call-site options after initial
-      // creation — use setFixtureMappings() to reconfigure. This prevents sketch
-      // code that passes hardcoded options from clobbering user-configured mappings.
-      this.colors[id].channels = channels
-      return
-    }
+    options?: { mappings?: FixtureMappingInput[] },
+  ): void {
+    this.sources.ensure(id, 1).setChannels(0, channels)
 
-    const store = this.engine.getStore()
-    const storeKey = `${this.id}-fixture-${id}-mappings`
-    const savedRaw = store.getState().paramValues[storeKey]
-
-    let mappings: FixtureMapping[] | undefined
-    if (savedRaw) {
-      try {
-        mappings = normalizeMappings(JSON.parse(savedRaw as string))
-      } catch (_) {
-        /* corrupt store value — ignore and fall through */
-      }
-    }
-    if (!mappings && options?.mappings) {
-      mappings = normalizeMappings(options.mappings)
-    }
-
-    const resolvedMappings = mappings ?? []
-    this.colors[id] = { id, channels, mappings: resolvedMappings }
-
-    // Write back so the panel reads from a single source of truth, and so legacy
-    // numeric addresses are persisted in the current { universe, channel } form.
-    if (resolvedMappings.length > 0) {
-      const normalizedRaw = JSON.stringify(resolvedMappings)
-      if (normalizedRaw !== savedRaw) {
-        store.setState((state) => {
-          state.paramValues[storeKey] = normalizedRaw
-          return state
-        })
-      }
+    if (options?.mappings && !this.patchedSources.has(id)) {
+      this.applyLegacyMappings(id, normalizeMappings(options.mappings))
     }
   }
 
-  /**
-   * Persist and apply a new mapping for a fixture.
-   * Saves to the store so the configuration survives app restarts.
-   */
-  public setFixtureMappings(id: string, mappings: FixtureMapping[]) {
-    if (!this.colors[id]) return
-    this.colors[id].mappings = mappings
-    const store = this.engine.getStore()
-    store.setState((state) => {
-      state.paramValues[`${this.id}-fixture-${id}-mappings`] = JSON.stringify(mappings)
-      return state
-    })
+  /** Replaces the patch entries generated for a legacy fixture and persists them. */
+  public setFixtureMappings(id: string, mappings: FixtureMappingInput[]): void {
+    this.applyLegacyMappings(id, normalizeMappings(mappings))
   }
 
-  /** Resolves every fixture into the universe buffers; called once per send tick. */
-  private composite(): FrameContext {
-    const paramValues = this.engine.getStore().getState().paramValues
-    const protocol = (paramValues[`${this.id}-global-protocol`] as DmxProtocol) || 'artnet'
-    const brightness = (paramValues[`${this.id}-global-brightness`] as number) ?? 1
-    const lerpSpeed = (paramValues[`${this.id}-global-lerpSpeed`] as number) ?? 0.2
+  // ── Patch and profile access for the panel ────────────────────────────────
 
-    for (const color of Object.values(this.colors)) {
-      for (const mapping of color.mappings) {
-        for (const address of mapping.startAddresses) {
-          mapping.channels.forEach((slot, index) => {
-            this.universes.write(
-              address.universe,
-              address.channel + index,
-              resolveSlot(slot, color.channels, brightness),
-            )
-          })
-        }
-      }
-    }
-
-    return { protocol, lerpSpeed }
+  public getSources(): PixelSource[] {
+    return this.sources.list()
   }
 
-  /**
-   * Fetch DMX device info (stub).
-   * Replace with real device discovery if available.
-   */
-  async fetchDeviceInfo() {
-    // Try to fetch devices from Electron bridge
-    if (window?.electron?.dmxGetDevices) {
-      try {
-        this.devices = await window.electron.dmxGetDevices()
-      } catch (error) {
-        console.error('[DMX] Failed to fetch devices:', error)
-        this.devices = [{ name: 'Error fetching devices', status: 'Error' }]
-      }
-    } else {
-      // Fallback for non-Electron environments
-      const paramValues = this.engine.getStore().getState().paramValues
-      const protocol = (paramValues[`${this.id}-global-protocol`] as string) || 'artnet'
-      this.devices = [{ name: 'Stub Device', protocol, status: 'Not implemented' }]
-    }
+  public getProfiles(): FixtureProfile[] {
+    return this.profiles
   }
 
-  /** Public read access for the panel UI. */
-  public getColors(): Record<string, FixtureColor> {
-    return this.colors
+  public getPatch(): PatchEntry[] {
+    return this.patch
   }
 
-  /** Public read access for the panel UI. */
-  public getDevices(): DmxDeviceInfo[] {
-    return this.devices
+  public setProfiles(profiles: FixtureProfile[]): void {
+    this.profiles = profiles
+    this.persistConfig()
   }
 
-  /** Live universe bytes for the panel UI. */
+  public setPatch(patch: PatchEntry[]): void {
+    this.patch = patch
+    this.persistConfig()
+  }
+
+  public getAddressConflicts(): Array<{ universe: number; channel: number }> {
+    return this.compiled ? findAddressConflicts(this.compiled) : []
+  }
+
   public getUniverseSnapshot(universe: number): Uint8Array {
     return this.universes.snapshot(universe)
   }
@@ -234,14 +212,204 @@ export class DmxLightingPlugin implements IPlugin {
     return this.universes.universeIds()
   }
 
+  // ── Config persistence ────────────────────────────────────────────────────
+
+  private persistConfig(): void {
+    const profilesRaw = JSON.stringify(this.profiles)
+    const patchRaw = JSON.stringify(this.patch)
+    this.lastProfilesRaw = profilesRaw
+    this.lastPatchRaw = patchRaw
+    this.patchRevision++
+    this.refreshPatchedSources()
+
+    this.engine.getStore().setState((state) => {
+      state.paramValues[this.profilesKey] = profilesRaw
+      state.paramValues[this.patchKey] = patchRaw
+      state.paramValues[this.versionKey] = SCHEMA_VERSION
+      return state
+    })
+  }
+
+  private refreshPatchedSources(): void {
+    this.patchedSources = new Set(this.patch.map((entry) => entry.tap.source))
+  }
+
+  /** Picks up project loads and panel edits by watching the raw stored strings. */
+  private syncConfigFromStore(paramValues: Record<string, unknown>): void {
+    if (!paramValues[this.versionKey]) {
+      this.migrateLegacyConfig(paramValues)
+      return
+    }
+
+    const profilesRaw = (paramValues[this.profilesKey] as string) ?? ''
+    const patchRaw = (paramValues[this.patchKey] as string) ?? ''
+    if (profilesRaw === this.lastProfilesRaw && patchRaw === this.lastPatchRaw) return
+
+    this.lastProfilesRaw = profilesRaw
+    this.lastPatchRaw = patchRaw
+
+    try {
+      const profiles = profilesRaw ? (JSON.parse(profilesRaw) as FixtureProfile[]) : []
+      this.profiles = mergeDefaultProfiles(profiles)
+    } catch (_) {
+      this.profiles = [...DEFAULT_PROFILES]
+    }
+    try {
+      this.patch = patchRaw ? (JSON.parse(patchRaw) as PatchEntry[]) : []
+    } catch (_) {
+      this.patch = []
+    }
+
+    this.patchRevision++
+    this.refreshPatchedSources()
+  }
+
+  /**
+   * Converts pre-Phase-1 `fixture-<id>-mappings` values into profiles and patch entries.
+   * Runs once, gated on the schema version, so clearing the patch does not resurrect them.
+   */
+  private migrateLegacyConfig(paramValues: Record<string, unknown>): void {
+    const prefix = `${this.id}-fixture-`
+    const suffix = '-mappings'
+    const profiles: FixtureProfile[] = []
+    const patch: PatchEntry[] = []
+
+    for (const key of Object.keys(paramValues)) {
+      if (!key.startsWith(prefix) || !key.endsWith(suffix)) continue
+      const fixtureId = key.slice(prefix.length, key.length - suffix.length)
+
+      let mappings: FixtureMapping[] = []
+      try {
+        mappings = normalizeMappings(JSON.parse(paramValues[key] as string))
+      } catch (_) {
+        continue
+      }
+
+      mappings.forEach((mapping, index) => {
+        if (mapping.channels.length === 0) return
+        const profileId = `legacy-${fixtureId}-${index}`
+        profiles.push({
+          id: profileId,
+          name: `${fixtureId} (migrated${mappings.length > 1 ? ` ${index + 1}` : ''})`,
+          shape: 'generic',
+          modes: [{ name: 'default', pixel: mapping.channels, pixelCount: 1 }],
+        })
+        patch.push({
+          id: makeEntryId(),
+          name: fixtureId,
+          profileId,
+          modeName: 'default',
+          addresses: mapping.startAddresses,
+          tap: { source: fixtureId, count: 1 },
+        })
+      })
+    }
+
+    this.profiles = mergeDefaultProfiles(profiles)
+    this.patch = patch
+    this.persistConfig()
+
+    if (patch.length > 0) {
+      console.log(`[DMX] Migrated ${patch.length} legacy fixture mapping(s) to the patch`)
+    }
+  }
+
+  /** Rebuilds the generated profile and entries for one legacy fixture id. */
+  private applyLegacyMappings(id: string, mappings: FixtureMapping[]): void {
+    const generatedPrefix = `legacy-${id}-`
+    const profiles = this.profiles.filter((p) => !p.id.startsWith(generatedPrefix))
+    const patch = this.patch.filter((e) => !e.profileId.startsWith(generatedPrefix))
+
+    mappings.forEach((mapping, index) => {
+      if (mapping.channels.length === 0) return
+      const profileId = `${generatedPrefix}${index}`
+      profiles.push({
+        id: profileId,
+        name: `${id}${mappings.length > 1 ? ` ${index + 1}` : ''}`,
+        shape: 'generic',
+        modes: [{ name: 'default', pixel: mapping.channels, pixelCount: 1 }],
+      })
+      patch.push({
+        id: makeEntryId(),
+        name: id,
+        profileId,
+        modeName: 'default',
+        addresses: mapping.startAddresses,
+        tap: { source: id, count: 1 },
+      })
+    })
+
+    this.profiles = profiles
+    this.patch = patch
+    this.persistConfig()
+  }
+
+  // ── Frame ─────────────────────────────────────────────────────────────────
+
+  /** Smooths every source, then executes the compiled patch into the universe buffers. */
+  private composite(): FrameContext {
+    const paramValues = this.engine.getStore().getState().paramValues as Record<string, unknown>
+    this.syncConfigFromStore(paramValues)
+
+    const protocol = (paramValues[`${this.id}-global-protocol`] as DmxProtocol) || 'artnet'
+    const brightness = (paramValues[`${this.id}-global-brightness`] as number) ?? 1
+    const lerpSpeed = (paramValues[`${this.id}-global-lerpSpeed`] as number) ?? 0.2
+    const lerpMode = (paramValues[`${this.id}-global-lerpMode`] as LerpMode) || 'linear-rgb'
+
+    // Matches the previous convention where lerpSpeed 0 is instant and 1 never arrives.
+    const factor = 1 - Math.max(0, Math.min(1, lerpSpeed))
+    this.sources.smoothAll(factor, lerpMode)
+
+    if (
+      !this.compiled ||
+      this.compiledPatchRevision !== this.patchRevision ||
+      this.compiledSourceRevision !== this.sources.revision
+    ) {
+      this.compiled = compilePatch(this.patch, this.profiles, this.sources)
+      this.compiledPatchRevision = this.patchRevision
+      this.compiledSourceRevision = this.sources.revision
+    }
+
+    executePatch(this.compiled, this.universes, brightness)
+
+    // Smoothing already happened per pixel, so the transport copies straight through.
+    return { protocol, lerpSpeed: 0 }
+  }
+
+  // ── Devices ───────────────────────────────────────────────────────────────
+
+  async fetchDeviceInfo() {
+    if (window?.electron?.dmxGetDevices) {
+      try {
+        this.devices = await window.electron.dmxGetDevices()
+      } catch (error) {
+        console.error('[DMX] Failed to fetch devices:', error)
+        this.devices = [{ name: 'Error fetching devices', status: 'Error' }]
+      }
+    } else {
+      const paramValues = this.engine.getStore().getState().paramValues
+      const protocol = (paramValues[`${this.id}-global-protocol`] as string) || 'artnet'
+      this.devices = [{ name: 'Stub Device', protocol, status: 'Not implemented' }]
+    }
+  }
+
+  public getDevices(): DmxDeviceInfo[] {
+    return this.devices
+  }
+
   public destroy() {
     this.sender.stop()
   }
 
   logDeviceInfo() {
     console.log('DMX Devices:', this.devices)
-    console.log('DMX Colors:', this.colors)
+    console.log(
+      'DMX Sources:',
+      this.sources.list().map((s) => `${s.id} (${s.pixelCount}px)`),
+    )
+    console.log('DMX Patch:', this.patch)
     console.log('DMX Universes:', this.universes.universeIds())
+    console.log('DMX Writes per frame:', this.compiled?.writeCount ?? 0)
   }
 
   /** Writes full-on to universe 0 channels 1–20; the send tick picks it up like any other change. */
@@ -251,4 +419,13 @@ export class DmxLightingPlugin implements IPlugin {
       this.universes.write(0, channel, 255)
     }
   }
+}
+
+/** Keeps the shipped profiles available without clobbering user edits to them. */
+function mergeDefaultProfiles(profiles: FixtureProfile[]): FixtureProfile[] {
+  const byId = new Map(profiles.map((p) => [p.id, p]))
+  for (const preset of DEFAULT_PROFILES) {
+    if (!byId.has(preset.id)) profiles = [...profiles, preset]
+  }
+  return profiles
 }

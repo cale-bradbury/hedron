@@ -40,6 +40,8 @@ engine.registerPlugin(dmxPlugin)
 ;(window as any).hedron = {
   engine,
   lighting: {
+    source: dmxPlugin.source.bind(dmxPlugin),
+    setColor: dmxPlugin.setColor.bind(dmxPlugin),
     setFixtureColor: dmxPlugin.setFixtureColor.bind(dmxPlugin),
     setFixtureMappings: dmxPlugin.setFixtureMappings.bind(dmxPlugin),
   },

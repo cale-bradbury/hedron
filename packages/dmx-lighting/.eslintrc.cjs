@@ -7,4 +7,11 @@ module.exports = {
       },
     },
   },
+  overrides: [
+    {
+      // Standalone node scripts run against the build output, not the aliased source.
+      files: ['scripts/**'],
+      rules: { 'no-restricted-imports': 'off' },
+    },
+  ],
 }
