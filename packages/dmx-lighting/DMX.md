@@ -13,18 +13,25 @@ The DMX lighting system lets sketches drive physical DMX fixtures in real time.
 ```
 packages/
   dmx-lighting/               ← this package (renderer-side plugin)
+    docs/
+      PIXEL_PIPELINE_PLAN.md  ← architecture & phased plan for strips/pixel mapping
     src/
-      DmxLightingPlugin.ts    ← main plugin class, setFixtureColor() API
+      DmxLightingPlugin.ts    ← plugin class, setFixtureColor() API, compositor
       DmxLightingConfig.ts    ← global option nodes (protocol, brightness, lerpSpeed)
       DmxLightingGlobalPanel.tsx
+      types.ts                ← fixture/channel/mapping types
+      address.ts              ← { universe, channel } addressing + parse/format
+      channelSlots.ts         ← resolveSlot(): one ChannelSlot -> one byte
+      UniverseSet.ts          ← 512-byte buffers per universe + dirty tracking
+      UniverseSender.ts       ← fixed-rate (~44fps) composite-and-flush loop
       protocols/
-        ArtNetSender.ts       ← stub
-        SacnSender.ts         ← stub
+        ArtNetSender.ts       ← stub, consumes raw universe bytes
+        SacnSender.ts         ← stub, consumes raw universe bytes
 
 apps/desktop/
   src/main/
     dmxService.ts             ← Electron main process, drives the USB device
-    index.ts                  ← IPC handlers: dmx:send, dmx:getDevices
+    index.ts                  ← IPC handlers: dmx:writeUniverse, dmx:getDevices
   resources/
     dmx_worker.py             ← legacy Python worker (unused, kept for reference)
 
@@ -37,29 +44,38 @@ apps/example-project/
 
 ## Data flow (end to end)
 
+The renderer composites fixtures into universe buffers; the main process only transports
+bytes. See `docs/PIXEL_PIPELINE_PLAN.md` for where this is heading.
+
 ```
 Sketch (renderer)
-  └─ window.hedron.lighting.setFixtureColor(id, channels, { channelMap, podCount })
+  └─ window.hedron.lighting.setFixtureColor(id, channels, { mappings })
        └─ DmxLightingPlugin.setFixtureColor()
-            └─ stores FixtureColor in this.colors[id]
-            └─ calls sendDMXData()  [throttled to ~30fps]
-                 └─ if protocol === 'usb':
-                      window.electron.dmxSend(this.colors, opts)
-                           │  IPC over contextBridge
-                           ▼
-                      Electron main: ipcMain.handle('dmx:send')
-                           └─ dmxService.sendColors(colors, opts)
-                                └─ writes into this.universe[0..511]
-                                     (frame loop runs separately at ~30fps)
+            └─ stores FixtureColor in this.colors[id]   (no send, no JSON)
 
-Frame loop (main process, ~33ms)
+Send tick (renderer, every 23ms ≈ 44fps — UniverseSender)
+  └─ DmxLightingPlugin.composite()
+       └─ resolveSlot() per channel slot -> UniverseSet.write(universe, channel, byte)
+            └─ byte-level dirty tracking per universe
+  └─ UniverseSet.takeDirty()
+       └─ protocol === "usb":  window.electron.dmxWriteUniverse(universe, bytes, lerpSpeed)
+            │  ipcRenderer.send (fire and forget, no round trip)
+            ▼
+       Electron main: ipcMain.on("dmx:writeUniverse")
+            └─ dmxService.writeUniverse()
+                 └─ universe 0 -> this.targetUniverse
+                    universe n -> this.otherUniverses (held for Art-Net/sACN)
+       └─ protocol === "artnet" | "sacn": sender.sendUniverse(universe, bytes)  [stubs]
+
+Frame loop (main process, ~33ms — unchanged)
   └─ FTDI BREAK via USB control transfer  (2ms)
   └─ BREAK release                        (1ms)
+  └─ lerp universe toward targetUniverse
   └─ bulk OUT: [0x00] + universe[0..511]  (250kbaud ≈ 22ms)
 ```
 
----
-
+Only universes whose bytes actually changed cross the IPC boundary, so a static scene
+sends nothing while the main-process frame loop keeps refreshing the wire.
 ## USB hardware layer
 
 - **Device**: Enttec Open DMX USB (or any FTDI FT232R-based "dumb" open DMX dongle)
@@ -74,94 +90,57 @@ Frame loop (main process, ~33ms)
 
 ---
 
-## Key types (packages/dmx-lighting/src/DmxLightingPlugin.ts)
+## Key types (packages/dmx-lighting/src/types.ts)
 
 ```typescript
 type ChannelType = 'red' | 'green' | 'blue' | 'white' | 'intensity'
 
-interface FixtureChannels {
-  red?: number      // 0–255
-  green?: number
-  blue?: number
-  white?: number
-  intensity?: number
+interface Address {
+  universe: number      // 0 is the USB dongle; others await Art-Net/sACN output
+  channel: number       // 1–512
+}
+
+type ChannelSlot =
+  | ChannelType                              // read virtual channel, apply brightness
+  | { field: ChannelType; scale?: number }   // read + per-slot scale
+  | { absolute: number }                     // fixed 0–255, brightness NOT applied
+  | null                                     // always 0 (padding)
+
+interface FixtureMapping {
+  startAddresses: Address[]   // each receives the same resolved bytes
+  channels: ChannelSlot[]     // output channel order from each start address
 }
 
 interface FixtureColor {
   id: string
-  channels: FixtureChannels       // virtual colour values from the sketch
-  target: string                  // DMX start address, e.g. "1" or "universe:1"
-  channelMap: ChannelType[]       // output order, e.g. ['red','green','blue','white','intensity']
-  podCount?: number               // repeat the same mapping N times consecutively (default 1)
+  channels: FixtureChannels   // virtual colour values from the sketch
+  mappings: FixtureMapping[]
 }
 ```
 
----
-
-## Current swizzle / address mapping (dmxService.ts — sendColors)
-
-The current implementation is minimal:
+Sketches may pass addresses loosely — `1`, `"1"`, `"2:14"` or `{ universe, channel }` —
+and `toAddress()` normalises them. Config persisted before universes existed (plain
+numbers) is migrated to universe 0 on load and rewritten to the store.
+## Current mapping behaviour (renderer — DmxLightingPlugin.composite)
 
 ```
 for each FixtureColor:
-  startAddress = parseInt(color.target)       // single start address
-  for pod in 0..podCount:
-    for (channelType, index) in channelMap:
-      dmxAddress = startAddress + pod * channelsPerPod + index
-      value = channels[channelType] ?? 0
-      if channelType !== 'intensity': value *= brightness
-      universe[dmxAddress - 1] = clamp(0, 255, round(value))
+  for each mapping:
+    for each address in mapping.startAddresses:
+      for (slot, index) in mapping.channels:
+        universes.write(address.universe, address.channel + index,
+                        resolveSlot(slot, channels, brightness))
 ```
 
-Limitations today:
-- One start address per fixture (no multi-universe scatter)
-- No way to override an individual channel with an absolute value
-- No way to exclude/reorder channels at send time beyond the static `channelMap` array
-- `podCount` repeats are identical — no pod-level overrides
+Limitations today — all addressed by the phased plan in `docs/PIXEL_PIPELINE_PLAN.md`:
 
----
+- One colour per fixture, so an LED bar needs one fixture per segment
+- No source/target decoupling, so no scroll, flip or sampling
+- No encoders, so fixed-colour-wheel fixtures cannot be driven
+- No physical layout, so no preview and no spatial pixel mapping
 
-## Next phase — advanced channel mapping (your prompt for the fresh chat)
+## Next phase
 
-> **Context**: This is the Hedron repo. Read `packages/dmx-lighting/DMX.md` for the full system overview before doing anything else.
->
-> **Goal**: Expand the swizzle layer between the virtual `FixtureChannels` partial and the real DMX universe so that:
->
-> 1. **Multiple output addresses** — A single fixture can fan out to an arbitrary list of comma seperated DMX start addresses (not just one). All addresses get the same resolved channel bytes.
->
-> 2. **Ordered channel selection** — Instead of just `channelMap: ChannelType[]`, each slot in the output can specify:
->    - which field from `FixtureChannels` to read from (`'red' | 'green' | 'blue' | 'white' | 'intensity'`). keep in mind `FixtureChannels` will likely expand in the future as we get access to more devices
->    - OR an **absolute override value** (0–255) that ignores the virtual colour entirely
->    - OR `null` / omitted to send `0` (useful for padding channels a fixture requires)
->
-> 3. **Independent control** — The mapping should be expressible per-fixture in the sketch API and also saveable/configurable in the Hedron UI store (like `target` is today).
->
-> **Guiding design**:
-> Replace `channelMap: ChannelType[]` + `target: string` + `podCount?: number` with a richer structure roughly like:
->
-> ```typescript
-> type ChannelSlot =
->   | ChannelType                // read from virtual channels, apply brightness
->   | { field: ChannelType; scale?: number }   // read + per-slot scale
->   | { absolute: number }       // fixed 0–255, brightness NOT applied
->   | null                       // always 0
->
-> interface FixtureMapping {
->   startAddresses: number[]     // one or more DMX universe addresses
->   channels: ChannelSlot[]      // output channel order from each start address
-> }
->
-> interface FixtureColor {
->   id: string
->   channels: FixtureChannels    // virtual values from the sketch (unchanged)
->   mappings: FixtureMapping[]   // replaces target + channelMap + podCount
-> }
-> ```
->
-> **Where the work lives**:
-> - `packages/dmx-lighting/src/DmxLightingPlugin.ts` — update `FixtureColor`, `setFixtureColor()` signature, update `sendDMXData()` to pass the new structure through the IPC call
-> - `apps/desktop/src/main/dmxService.ts` — update `sendColors()` to execute the new mapping logic and write to `this.universe`
-> - `apps/example-project/sketches/fixture-color/index.ts` — update the example sketch call to use the new API
-> - Keep backward-compat or migration in mind: the store persists `target` values — handle gracefully
->
-> Do not touch the USB frame loop, `_doInitialize`, `scheduleFrame`, `sendFrame`, or `ctrlOut` in `dmxService.ts` — those are working and must not change.
+See `docs/PIXEL_PIPELINE_PLAN.md`. Phase 0 (universe buffers, fixed-rate sender,
+`{ universe, channel }` addressing) is done; Phase 1 introduces sources, fixture
+profiles and the patch compiler.

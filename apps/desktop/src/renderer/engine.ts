@@ -41,6 +41,7 @@ engine.registerPlugin(dmxPlugin)
   engine,
   lighting: {
     setFixtureColor: dmxPlugin.setFixtureColor.bind(dmxPlugin),
+    setFixtureMappings: dmxPlugin.setFixtureMappings.bind(dmxPlugin),
   },
 }
 

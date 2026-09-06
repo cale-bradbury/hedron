@@ -1,2 +1,7 @@
 export { DmxLightingPlugin } from './DmxLightingPlugin'
 export { DmxLightingGlobalPanel } from './DmxLightingGlobalPanel'
+export { UniverseSet } from './UniverseSet'
+export { UniverseSender, SEND_INTERVAL_MS } from './UniverseSender'
+export { DMX_UNIVERSE_SIZE, toAddress, parseAddressList, formatAddressList } from './address'
+export type { Address } from './address'
+export type * from './types'

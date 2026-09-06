@@ -1,17 +1,14 @@
 // ArtNetSender.ts
-// Stub for ArtNet DMX output
-import type { FixtureColor } from '../DmxLightingPlugin'
+// Stub for ArtNet DMX output — consumes raw universe bytes, no fixture knowledge.
 
 export class ArtNetSender {
   constructor() {
     // Initialize ArtNet connection here
   }
 
-  sendDMX(
-    colors: Record<string, FixtureColor>,
-    opts: { brightness: number; lerpSpeed: number; lerpMode: string },
-  ) {
-    // TODO: Implement ArtNet DMX packet sending
-    console.log('[ArtNet] Sending DMX:', colors, opts)
+  /** Sends one 512-byte universe. */
+  sendUniverse(universe: number, bytes: Uint8Array) {
+    // TODO: Implement ArtNet packet sending
+    console.log('[ArtNet] Universe', universe, bytes.length, 'bytes')
   }
 }

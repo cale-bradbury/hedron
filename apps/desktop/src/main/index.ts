@@ -140,8 +140,8 @@ ipcMain.handle(FrameEvents.SaveFrame, saveFrameHandler)
 ipcMain.handle(FrameEvents.SaveFrameSequence, saveFrameSequenceHandler)
 
 // DMX IPC Handlers
-ipcMain.handle('dmx:send', async (_, colors, opts) => {
-  await dmxService.sendColors(colors, opts)
+ipcMain.on('dmx:writeUniverse', (_, universe: number, bytes: Uint8Array, lerpSpeed: number) => {
+  dmxService.writeUniverse(universe, bytes, lerpSpeed)
 })
 
 ipcMain.handle('dmx:getDevices', async () => {

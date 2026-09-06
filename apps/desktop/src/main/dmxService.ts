@@ -31,75 +31,13 @@ const FTDI_LINE_8N2_BREAK = 0x5008
 const DMX_FRAME_MS = 30 // ~33 fps
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type ChannelType = 'red' | 'green' | 'blue' | 'white' | 'intensity'
-
-type ChannelSlot =
-  | ChannelType
-  | { field: ChannelType; scale?: number }
-  | { absolute: number }
-  | null
-
-interface FixtureMapping {
-  startAddresses: number[]
-  channels: ChannelSlot[]
-}
-
-interface FixtureChannels {
-  red?: number
-  green?: number
-  blue?: number
-  white?: number
-  intensity?: number
-}
-
-interface DmxColor {
-  id: string
-  channels: FixtureChannels
-  mappings?: FixtureMapping[]
-}
-
-interface DmxOptions {
-  brightness: number
-  lerpSpeed: number
-  lerpMode: string
-}
+// The renderer composites fixtures into universe buffers; this process only
+// transports them, so no fixture, channel or colour types are needed here.
+const DMX_UNIVERSE_SIZE = 512
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-/**
- * Resolve a single ChannelSlot to a clamped 0–255 integer.
- *
- * - `ChannelType` string — reads the named field, applies brightness (except
- *   'intensity' which the sketch is expected to pre-scale).
- * - `{ field, scale? }` — same as above, then multiplies by per-slot scale.
- * - `{ absolute }` — fixed value, brightness is NOT applied.
- * - `null` / undefined — outputs 0 (padding).
- */
-function resolveSlot(
-  slot: ChannelSlot | null | undefined,
-  channels: FixtureChannels,
-  brightness: number,
-): number {
-  if (slot === null || slot === undefined) return 0
-
-  if (typeof slot === 'string') {
-    let value = channels[slot] ?? 0
-    if (slot !== 'intensity') value = value * brightness
-    return Math.min(255, Math.max(0, Math.round(value)))
-  }
-
-  if ('absolute' in slot) {
-    return Math.min(255, Math.max(0, Math.round(slot.absolute)))
-  }
-
-  // { field, scale? }
-  let value = channels[slot.field] ?? 0
-  if (slot.field !== 'intensity') value = value * brightness
-  if (slot.scale !== undefined) value = value * slot.scale
-  return Math.min(255, Math.max(0, Math.round(value)))
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -107,14 +45,15 @@ class DmxService {
   private device: UsbDevice | null = null
   private iface: UsbInterface | null = null
   private outEp: UsbOutEndpoint | null = null
-  private universe = Buffer.alloc(512, 0) // smoothed output — what the hardware sees
-  private targetUniverse = Buffer.alloc(512, 0) // desired values set by sendColors()
-  private smoothedUniverse = new Float32Array(512) // float accumulator for lerp
+  private universe = Buffer.alloc(DMX_UNIVERSE_SIZE, 0) // smoothed output — what the hardware sees
+  private targetUniverse = Buffer.alloc(DMX_UNIVERSE_SIZE, 0) // universe 0 as written by the renderer
+  private smoothedUniverse = new Float32Array(DMX_UNIVERSE_SIZE) // float accumulator for lerp
+  // Universes above 0 are stored but not transmitted until Art-Net/sACN output lands.
+  private otherUniverses = new Map<number, Buffer>()
   private currentLerpSpeed = 0
   private isReady = false
   private running = false
   private initPromise: Promise<void> | null = null
-  private lastSentData: Record<number, number> = {}
   private lastSentTime: Date | null = null
 
   // ── Public API ───────────────────────────────────────────────────────────
@@ -126,33 +65,30 @@ class DmxService {
     return this.initPromise
   }
 
-  async sendColors(colors: Record<string, DmxColor>, opts: DmxOptions): Promise<void> {
-    if (!this.isReady) await this.initialize()
-    if (!this.isReady) return
+  /** Accepts a composited universe from the renderer; universe 0 is what reaches the wire. */
+  writeUniverse(universe: number, bytes: Uint8Array, lerpSpeed: number): void {
+    if (bytes.length !== DMX_UNIVERSE_SIZE) {
+      console.warn(`[DMX] Ignoring universe ${universe}: expected ${DMX_UNIVERSE_SIZE} bytes, got ${bytes.length}`)
+      return
+    }
 
-    this.currentLerpSpeed = Math.max(0, Math.min(1, opts.lerpSpeed ?? 0))
-
-    Object.values(colors).forEach((color) => {
-      if (color.mappings && color.mappings.length > 0) {
-        color.mappings.forEach((mapping) => {
-          mapping.startAddresses.forEach((startAddress) => {
-            if (startAddress < 1 || startAddress > 512) return
-            mapping.channels.forEach((slot, index) => {
-              const dmxAddress = startAddress + index
-              if (dmxAddress > 512) return
-              const value = resolveSlot(slot, color.channels, opts.brightness)
-              this.targetUniverse[dmxAddress - 1] = value
-              this.lastSentData[dmxAddress] = value
-            })
-          })
-        })
-      }
-    })
+    this.currentLerpSpeed = Math.max(0, Math.min(1, lerpSpeed ?? 0))
     this.lastSentTime = new Date()
-  }
 
+    if (universe !== 0) {
+      this.otherUniverses.set(universe, Buffer.from(bytes))
+      return
+    }
+
+    this.targetUniverse.set(bytes)
+    if (!this.isReady) void this.initialize()
+  }
   async getDevices(): Promise<object[]> {
     const found = !!findByIds(FTDI_VID, FTDI_PID)
+    const activeChannels: Array<[number, number]> = []
+    for (let i = 0; i < DMX_UNIVERSE_SIZE; i++) {
+      if (this.targetUniverse[i] !== 0) activeChannels.push([i + 1, this.targetUniverse[i]])
+    }
     return [
       {
         name: 'FT232R USB UART (usb/libusb)',
@@ -164,9 +100,9 @@ class DmxService {
             ? 'Device found, not initialised'
             : 'Device not found',
         lastSent: this.lastSentTime
-          ? `${this.lastSentTime.toLocaleTimeString()}: ${Object.keys(this.lastSentData).length} channels`
+          ? `${this.lastSentTime.toLocaleTimeString()}: ${activeChannels.length} active channels`
           : undefined,
-        lastData: this.lastSentTime ? JSON.stringify(this.lastSentData) : undefined,
+        lastData: this.lastSentTime ? JSON.stringify(Object.fromEntries(activeChannels)) : undefined,
       },
     ]
   }
@@ -274,14 +210,14 @@ class DmxService {
         this.targetUniverse.copy(this.universe)
         this.smoothedUniverse.set(this.universe)
       } else {
-        for (let i = 0; i < 512; i++) {
+        for (let i = 0; i < DMX_UNIVERSE_SIZE; i++) {
           this.smoothedUniverse[i] += (this.targetUniverse[i] - this.smoothedUniverse[i]) * factor
           this.universe[i] = Math.round(this.smoothedUniverse[i])
         }
       }
 
       // Packet: start code 0x00 + 512 channel bytes
-      const packet = Buffer.allocUnsafe(513)
+      const packet = Buffer.allocUnsafe(DMX_UNIVERSE_SIZE + 1)
       packet[0] = 0x00
       this.universe.copy(packet, 1)
       await this.outEp.transferAsync(packet)

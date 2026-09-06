@@ -15,6 +15,7 @@ import {
   ChannelSlot,
   ChannelType,
 } from './DmxLightingPlugin'
+import { formatAddressList, parseAddressList } from './address'
 
 export interface DmxLightingGlobalPanelProps {
   engine: HedronEngine
@@ -50,13 +51,6 @@ function buildSlotFromEntry(entry: AddSlotEntry): ChannelSlot {
   const scale = parseFloat(entry.scale)
   if (!isNaN(scale) && entry.scale.trim() !== '') return { field, scale }
   return field
-}
-
-function parseAddresses(str: string): number[] {
-  return str
-    .split(',')
-    .map((s) => parseInt(s.trim(), 10))
-    .filter((n) => !isNaN(n) && n >= 1 && n <= 512)
 }
 
 // ─── Panel ────────────────────────────────────────────────────────────────────
@@ -117,7 +111,7 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
     const key = `${id}-${mIdx}`
     return key in addrInputs
       ? addrInputs[key]
-      : (getMappings(id)[mIdx]?.startAddresses.join(', ') ?? '')
+      : formatAddressList(getMappings(id)[mIdx]?.startAddresses ?? [])
   }
 
   const getAddSlot = (id: string, mIdx: number): AddSlotEntry =>
@@ -252,11 +246,11 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
                           }))
                         }
                         onBlur={() => {
-                          const addresses = parseAddresses(getAddrInput(id, mIdx))
+                          const addresses = parseAddressList(getAddrInput(id, mIdx))
                           patchMapping(id, mIdx, { startAddresses: addresses })
                           setAddrInputs((prev) => ({
                             ...prev,
-                            [`${id}-${mIdx}`]: addresses.join(', '),
+                            [`${id}-${mIdx}`]: formatAddressList(addresses),
                           }))
                         }}
                         onKeyDown={(e) => {
@@ -265,7 +259,8 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
                         style={s.textInput}
                       />
                       <div style={{ fontSize: '0.72em', opacity: 0.4, marginTop: 3 }}>
-                        Comma-separated (1–512). Each address receives the same channel bytes.
+                        Comma-separated (1–512), optionally universe:channel. Each address
+                        receives the same channel bytes.
                       </div>
                     </div>
 

@@ -6,7 +6,8 @@ const api = {}
 
 // DMX API
 const electronBridge = {
-  dmxSend: (colors: any, opts: any) => ipcRenderer.invoke('dmx:send', colors, opts),
+  dmxWriteUniverse: (universe: number, bytes: Uint8Array, lerpSpeed: number) =>
+    ipcRenderer.send('dmx:writeUniverse', universe, bytes, lerpSpeed),
   dmxGetDevices: () => ipcRenderer.invoke('dmx:getDevices'),
 }
 
