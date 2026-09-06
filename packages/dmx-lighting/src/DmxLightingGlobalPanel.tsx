@@ -36,6 +36,9 @@ const CHANNEL_COLORS: Record<string, string> = {
   intensity: '#8a6e00',
 }
 
+/** Sentinel option that switches the source field to free text. */
+const CUSTOM_SOURCE = '\u0000custom'
+
 /** Swatches beyond this are elided; long strips stay readable without a huge DOM. */
 const MAX_PREVIEW_SWATCHES = 96
 
@@ -63,6 +66,12 @@ function entryPixelCount(entry: PatchEntry, fallback: number): number {
   return Math.max(0, Math.floor(entry.tap.count ?? fallback))
 }
 
+/** Every live source, plus the entry’s own so an unresolved name stays visible. */
+function sourceOptions(sources: { id: string }[], current: string): string[] {
+  const ids = sources.map((source) => source.id)
+  return ids.includes(current) ? ids : [current, ...ids]
+}
+
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ engine }) => {
@@ -72,6 +81,15 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
   const [closedEntries, setClosedEntries] = React.useState<Set<string>>(new Set())
   const [addrInputs, setAddrInputs] = React.useState<Record<string, string>>({})
   const [addSlotSelections, setAddSlotSelections] = React.useState<Record<string, AddSlotEntry>>({})
+  const [customSources, setCustomSources] = React.useState<Set<string>>(new Set())
+
+  const setCustomSource = (entryId: string, custom: boolean) =>
+    setCustomSources((prev) => {
+      const next = new Set(prev)
+      if (custom) next.add(entryId)
+      else next.delete(entryId)
+      return next
+    })
 
   // The patch is edited through the plugin rather than the store, so poll for changes
   // the sketch API makes (auto-patching a new fixture, for instance).
@@ -263,15 +281,44 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
                     </div>
                     <div>
                       <div style={s.fieldLabel}>Source</div>
-                      <input
-                        type="text"
-                        list="dmx-source-ids"
-                        value={entry.tap.source}
-                        onChange={(e) =>
-                          updateEntry(entry.id, { tap: { ...entry.tap, source: e.target.value } })
-                        }
-                        style={s.textInput}
-                      />
+                      {customSources.has(entry.id) ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          value={entry.tap.source}
+                          placeholder="source name"
+                          onChange={(e) =>
+                            updateEntry(entry.id, { tap: { ...entry.tap, source: e.target.value } })
+                          }
+                          onBlur={() => setCustomSource(entry.id, false)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                          }}
+                          style={s.textInput}
+                        />
+                      ) : (
+                        <select
+                          value={entry.tap.source}
+                          onChange={(e) => {
+                            if (e.target.value === CUSTOM_SOURCE) {
+                              setCustomSource(entry.id, true)
+                              return
+                            }
+                            updateEntry(entry.id, {
+                              tap: { ...entry.tap, source: e.target.value },
+                            })
+                          }}
+                          style={s.select}
+                        >
+                          {/* The entry's own source is listed even if no sketch has created it yet. */}
+                          {sourceOptions(sources, entry.tap.source).map((id) => (
+                            <option key={id} value={id}>
+                              {id || '(none)'}
+                            </option>
+                          ))}
+                          <option value={CUSTOM_SOURCE}>Type a name…</option>
+                        </select>
+                      )}
                     </div>
                   </div>
 
@@ -455,12 +502,6 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
             </div>
           )
         })}
-
-        <datalist id="dmx-source-ids">
-          {sources.map((source) => (
-            <option key={source.id} value={source.id} />
-          ))}
-        </datalist>
 
         <Button
           type="secondary"
