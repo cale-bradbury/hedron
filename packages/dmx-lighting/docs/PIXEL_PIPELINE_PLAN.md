@@ -1,6 +1,6 @@
 # DMX Pixel Pipeline — Architecture & Implementation Plan
 
-Status: phases 0 and 1 implemented; 2 onward proposed. Supersedes the "Next phase" section of `../DMX.md`.
+Status: phases 0-2 implemented; 3 onward proposed. Supersedes the "Next phase" section of `../DMX.md`.
 
 ## Why
 
@@ -211,7 +211,7 @@ path and no object graph crossing IPC.
 **Done when:** the LED bar runs as one patch entry with `pixel: ['red','green','blue'],
 pixelCount: 38` driven by a 38-pixel source, and every existing fixture still works.
 
-### Phase 2 — Taps and transforms
+### Phase 2 — Taps and transforms  ✅ done
 
 1. `offset` with `wrap`, plus `step` and `count`.
 2. `arrangement`: `reverse` and `serpentine` with `segmentSize`, covering per-segment flip

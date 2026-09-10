@@ -23,13 +23,35 @@ export interface FixtureProfile {
   modes: FixtureMode[]
 }
 
-/** Which pixels of which source drive a patch entry. Phase 2 adds wrap, reverse and resampling. */
+/** Physical pixel order of a fixture relative to its logical order. */
+export type TapArrangement = 'forward' | 'reverse' | 'serpentine'
+
+/** How the source span maps onto the fixture's pixel count. */
+export type TapFit = 'clip' | 'stretch'
+
+/** How a fractional or multi-pixel source position becomes one colour. */
+export type TapFilter = 'nearest' | 'linear' | 'average'
+
+/** Which pixels of which source drive a patch entry, and in what order. */
 export interface Tap {
   source: string
-  /** First source pixel to read. */
+  /**
+   * First source pixel to read. May be fractional, and is the seed for this entry's
+   * animatable offset param node — scrolling is this value moving with `wrap` on.
+   */
   offset?: number
   /** Pixels consumed, overriding the mode's pixelCount. */
   count?: number
+  /** Source pixels advanced per output pixel under `clip`. Defaults to 1. */
+  step?: number
+  /** Indices wrap around the source instead of clamping to its ends. */
+  wrap?: boolean
+  arrangement?: TapArrangement
+  /** Pixels per segment for `serpentine`; defaults to the whole fixture. */
+  segmentSize?: number
+  /** `clip` walks the source one step per pixel; `stretch` fits the whole source. */
+  fit?: TapFit
+  filter?: TapFilter
 }
 
 export interface PatchEntry {
@@ -40,7 +62,18 @@ export interface PatchEntry {
   /** Fan-out: every address receives the same resolved bytes. */
   addresses: Address[]
   tap: Tap
+  /** Per-fixture trim, seed for this entry's animatable gain param node. Defaults to 1. */
+  gain?: number
   enabled?: boolean
+}
+
+/** Node ids for the animatable per-entry values; deterministic so they survive reloads. */
+export function tapOffsetNodeId(pluginId: string, entryId: string): string {
+  return `${pluginId}-tap-${entryId}-offset`
+}
+
+export function tapGainNodeId(pluginId: string, entryId: string): string {
+  return `${pluginId}-tap-${entryId}-gain`
 }
 
 export const DEFAULT_PROFILES: FixtureProfile[] = [

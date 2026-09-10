@@ -22,7 +22,7 @@ packages/
       types.ts                ← channel/slot types
       profiles.ts             ← FixtureProfile / FixtureMode / Tap / PatchEntry
       PixelSource.ts          ← named pixel buffers + smoothing + SourceRegistry
-      PatchCompiler.ts        ← compiles the patch to flat arrays, executes a frame
+      PatchCompiler.ts        ← compiles the patch to flat arrays, resolves taps, writes
       address.ts              ← { universe, channel } addressing + parse/format
       channelSlots.ts         ← resolveSlot(): one ChannelSlot -> one byte (legacy path)
       UniverseSet.ts          ← 512-byte buffers per universe + dirty tracking
@@ -122,8 +122,14 @@ interface FixtureMode {
 
 interface Tap {
   source: string
-  offset?: number   // first source pixel read
-  count?: number    // pixels consumed, overriding the mode
+  offset?: number        // first source pixel; fractional allowed, animatable
+  count?: number         // pixels consumed, overriding the mode
+  step?: number          // source pixels per output pixel under clip
+  wrap?: boolean         // indices wrap instead of clamping
+  arrangement?: 'forward' | 'reverse' | 'serpentine'
+  segmentSize?: number   // pixels per serpentine segment
+  fit?: 'clip' | 'stretch'
+  filter?: 'nearest' | 'linear' | 'average'
 }
 
 interface PatchEntry {
@@ -133,6 +139,7 @@ interface PatchEntry {
   modeName: string
   addresses: Address[]   // fan-out: every address gets the same bytes
   tap: Tap
+  gain?: number          // per-fixture trim, animatable
   enabled?: boolean
 }
 ```
@@ -140,19 +147,44 @@ interface PatchEntry {
 The Tap is what decouples source index from DMX address: eight pots can each read a
 different pixel of one strip while keeping their own intensity and strobe channels.
 
+### Tap transforms
+
+| Want | Set |
+| --- | --- |
+| Scroll the strip | animate **Offset** with **Wrap** on |
+| Smooth sub-pixel scroll | the same, plus **Filter: linear** |
+| Flip the bar | **Arrangement: reverse** |
+| Flip alternate segments | **Arrangement: serpentine** + **Segment Size** |
+| Zig-zag matrix wiring | the same; segment size is the row length |
+| Fit a 16px source to a 38px bar | **Fit: stretch** (+ linear to interpolate) |
+| One pot follows a span | **Pixels: 1**, **Step: N**, **Filter: average** |
+| Every other pixel | **Step: 2** |
+
+Offset and gain are param nodes (`dmx-lighting-tap-<entryId>-offset` / `-gain`), so an
+LFO, MIDI control or timeline track drives them like any other param — scrolling needs
+no sketch code. The values stored on the tap seed those nodes and are the fallback when
+a node is missing, which is how the headless verifier drives them.
+
+A position identifies a point in source space, and `nearest` floors it to the pixel
+containing it. Positions past the ends wrap or clamp per `wrap`, so a one-pixel source
+still broadcasts to a whole fixture.
+
 ## Value pipeline
 
 ```
 source pixel -> smoothing (per pixel, linear-rgb or curved-hsb)
-             -> tap (offset/count; clamps past the end of the source)
+             -> tap (arrangement, offset, step, wrap, fit, filter)
+             -> per-entry gain (not applied to intensity)
              -> slot resolution (field, scale, absolute, pad)
              -> master brightness (not applied to intensity or absolute slots)
              -> optional temporal dither -> byte -> universe buffer
 ```
 
-Compilation flattens the whole patch to one entry per output byte, so the per-frame
-loop does no lookups, allocation or slot-shape branching. Cost is O(total pixels),
-independent of fixture count.
+Each frame runs `resolveTaps()` then `executePatch()`. Resolve samples every tap into
+one shared buffer of instance pixels; execute is the flat write loop reading that
+buffer. Compilation flattens the whole patch to one entry per output byte and bakes
+the arrangement into each tap, so a frame only adds the current offset. Cost is
+O(total pixels), independent of fixture count.
 
 ### Temporal dithering
 
@@ -198,6 +230,6 @@ broadcast, multi-universe routing, conflict detection and dirty tracking.
 
 ## Next phase
 
-See `docs/PIXEL_PIPELINE_PLAN.md`. Phases 0 and 1 are done. Phase 2 adds the rest of the
-tap transforms — wrapping offset (scroll), reverse and serpentine (flip), and resampling
-— followed by encoders for fixed-colour fixtures in Phase 3.
+See `docs/PIXEL_PIPELINE_PLAN.md`. Phases 0, 1 and 2 are done. Phase 3 adds encoders —
+RGBW white extraction, CMY, colour wheels for fixed-colour fixtures, 16-bit slots for
+movers, and an open field registry so new devices need no type change.

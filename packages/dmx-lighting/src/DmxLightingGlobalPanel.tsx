@@ -14,10 +14,15 @@ import { PIXEL_STRIDE } from './PixelSource'
 import {
   FixtureProfile,
   PatchEntry,
+  TapArrangement,
+  TapFilter,
+  TapFit,
   findMode,
   findProfile,
   makeEntryId,
   modeChannelCount,
+  tapGainNodeId,
+  tapOffsetNodeId,
 } from './profiles'
 
 export interface DmxLightingGlobalPanelProps {
@@ -402,19 +407,115 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
                       />
                     </div>
                     <div>
-                      <div style={s.fieldLabel}>Source Offset</div>
+                      <div style={s.fieldLabel}>Step</div>
                       <input
                         type="number"
                         min={0}
-                        value={entry.tap.offset ?? 0}
+                        step={0.1}
+                        value={entry.tap.step ?? 1}
                         onChange={(e) =>
                           updateEntry(entry.id, {
-                            tap: { ...entry.tap, offset: parseInt(e.target.value, 10) || 0 },
+                            tap: { ...entry.tap, step: parseFloat(e.target.value) || 0 },
                           })
                         }
                         style={{ ...s.numInput, width: '100%', boxSizing: 'border-box' }}
                       />
                     </div>
+                  </div>
+
+                  <div style={{ ...s.grid3, marginTop: 10 }}>
+                    <div>
+                      <div style={s.fieldLabel}>Fit</div>
+                      <select
+                        value={entry.tap.fit ?? 'clip'}
+                        onChange={(e) =>
+                          updateEntry(entry.id, {
+                            tap: { ...entry.tap, fit: e.target.value as TapFit },
+                          })
+                        }
+                        style={s.select}
+                      >
+                        <option value="clip">clip (step through)</option>
+                        <option value="stretch">stretch (fit source)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <div style={s.fieldLabel}>Filter</div>
+                      <select
+                        value={entry.tap.filter ?? 'nearest'}
+                        onChange={(e) =>
+                          updateEntry(entry.id, {
+                            tap: { ...entry.tap, filter: e.target.value as TapFilter },
+                          })
+                        }
+                        style={s.select}
+                      >
+                        <option value="nearest">nearest</option>
+                        <option value="linear">linear</option>
+                        <option value="average">average</option>
+                      </select>
+                    </div>
+                    <div>
+                      <div style={s.fieldLabel}>Wrap</div>
+                      <label style={s.checkboxRow}>
+                        <input
+                          type="checkbox"
+                          checked={entry.tap.wrap === true}
+                          onChange={(e) =>
+                            updateEntry(entry.id, {
+                              tap: { ...entry.tap, wrap: e.target.checked },
+                            })
+                          }
+                        />
+                        <span>wrap around</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div style={{ ...s.grid2, marginTop: 10 }}>
+                    <div>
+                      <div style={s.fieldLabel}>Arrangement</div>
+                      <select
+                        value={entry.tap.arrangement ?? 'forward'}
+                        onChange={(e) =>
+                          updateEntry(entry.id, {
+                            tap: { ...entry.tap, arrangement: e.target.value as TapArrangement },
+                          })
+                        }
+                        style={s.select}
+                      >
+                        <option value="forward">forward</option>
+                        <option value="reverse">reverse</option>
+                        <option value="serpentine">serpentine</option>
+                      </select>
+                    </div>
+                    {entry.tap.arrangement === 'serpentine' && (
+                      <div>
+                        <div style={s.fieldLabel}>Segment Size</div>
+                        <input
+                          type="number"
+                          min={1}
+                          value={entry.tap.segmentSize ?? pixels}
+                          onChange={(e) =>
+                            updateEntry(entry.id, {
+                              tap: {
+                                ...entry.tap,
+                                segmentSize: Math.max(1, parseInt(e.target.value, 10) || 1),
+                              },
+                            })
+                          }
+                          style={{ ...s.numInput, width: '100%', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Offset and gain are param nodes, so they can be modulated like any other. */}
+                  <div style={{ marginTop: 10 }}>
+                    <ControlGrid>
+                      <NodeContainer nodeId={tapOffsetNodeId(plugin.id, entry.id)} />
+                      <NodeContainer nodeId={tapGainNodeId(plugin.id, entry.id)} />
+                    </ControlGrid>
                   </div>
 
                   {profile && profile.modes.length > 1 && (
@@ -854,6 +955,14 @@ const s = {
     borderRadius: 4,
     padding: '5px 8px',
     marginBottom: 8,
+  } as React.CSSProperties,
+
+  checkboxRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    fontSize: '0.82em',
+    opacity: 0.8,
   } as React.CSSProperties,
 
   profileNote: {

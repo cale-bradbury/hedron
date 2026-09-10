@@ -3,8 +3,21 @@ import { dmxIcon } from '@hedron-gl/ui-core'
 import { globalOptionNodesConfig } from './DmxLightingConfig'
 import { toAddress } from './address'
 import { PixelSource, SourceRegistry } from './PixelSource'
-import { compilePatch, CompiledPatch, executePatch, findAddressConflicts } from './PatchCompiler'
-import { DEFAULT_PROFILES, FixtureProfile, makeEntryId, PatchEntry } from './profiles'
+import {
+  compilePatch,
+  CompiledPatch,
+  executePatch,
+  findAddressConflicts,
+  resolveTaps,
+} from './PatchCompiler'
+import {
+  DEFAULT_PROFILES,
+  FixtureProfile,
+  makeEntryId,
+  PatchEntry,
+  tapGainNodeId,
+  tapOffsetNodeId,
+} from './profiles'
 import { UniverseSet } from './UniverseSet'
 import { UniverseSender, FrameContext } from './UniverseSender'
 import { ArtNetSender } from './protocols/ArtNetSender'
@@ -221,6 +234,7 @@ export class DmxLightingPlugin implements IPlugin {
     this.lastPatchRaw = patchRaw
     this.patchRevision++
     this.refreshPatchedSources()
+    this.syncTapNodes()
 
     this.engine.getStore().setState((state) => {
       state.paramValues[this.profilesKey] = profilesRaw
@@ -232,6 +246,54 @@ export class DmxLightingPlugin implements IPlugin {
 
   private refreshPatchedSources(): void {
     this.patchedSources = new Set(this.patch.map((entry) => entry.tap.source))
+  }
+
+  /**
+   * Gives every patch entry an offset and gain param node, so both can be driven by LFOs,
+   * MIDI and the timeline like any other param. Ids are deterministic, so a reload
+   * reattaches whatever was mapped to them.
+   */
+  private syncTapNodes(): void {
+    const wanted = new Set<string>()
+
+    for (const entry of this.patch) {
+      const offsetId = tapOffsetNodeId(this.id, entry.id)
+      const gainId = tapGainNodeId(this.id, entry.id)
+      wanted.add(offsetId)
+      wanted.add(gainId)
+
+      this.engine.addNodeOnce(offsetId, null, {
+        nodeType: 'param',
+        key: `tap-${entry.id}-offset`,
+        title: `${entry.name || entry.id} Offset`,
+        valueType: 'number',
+        defaultValue: entry.tap.offset ?? 0,
+        sliderMin: 0,
+        sliderMax: 128,
+      })
+      this.engine.addNodeOnce(gainId, null, {
+        nodeType: 'param',
+        key: `tap-${entry.id}-gain`,
+        title: `${entry.name || entry.id} Gain`,
+        valueType: 'number',
+        defaultValue: entry.gain ?? 1,
+        sliderMin: 0,
+        sliderMax: 1,
+      })
+    }
+
+    // Drop nodes for entries that no longer exist, so removing a fixture does not leave
+    // orphaned params behind. Only the params themselves are matched — their sliderMin and
+    // sliderMax children share the prefix and are removed with their parent.
+    const store = this.engine.getStore()
+    const prefix = `${this.id}-tap-`
+    const stale = Object.keys(store.getState().nodes).filter(
+      (nodeId) =>
+        nodeId.startsWith(prefix) &&
+        (nodeId.endsWith('-offset') || nodeId.endsWith('-gain')) &&
+        !wanted.has(nodeId),
+    )
+    for (const nodeId of stale) store.getState().deleteNode(nodeId)
   }
 
   /** Picks up project loads and panel edits by watching the raw stored strings. */
@@ -262,6 +324,7 @@ export class DmxLightingPlugin implements IPlugin {
 
     this.patchRevision++
     this.refreshPatchedSources()
+    this.syncTapNodes()
   }
 
   /**
@@ -371,6 +434,17 @@ export class DmxLightingPlugin implements IPlugin {
       this.compiledSourceRevision = this.sources.revision
     }
 
+    // Offset and gain come from param nodes so they can be modulated like any other
+    // param; the stored tap values are the fallback and the node's seed.
+    for (const tap of this.compiled.taps) {
+      const entry = this.patch.find((e) => e.id === tap.entryId)
+      const offset = paramValues[tapOffsetNodeId(this.id, tap.entryId)]
+      const gain = paramValues[tapGainNodeId(this.id, tap.entryId)]
+      tap.offset = typeof offset === 'number' ? offset : (entry?.tap.offset ?? 0)
+      tap.gain = typeof gain === 'number' ? gain : (entry?.gain ?? 1)
+    }
+
+    resolveTaps(this.compiled)
     executePatch(this.compiled, this.universes, brightness, dither)
 
     // Smoothing already happened per pixel, so the transport copies straight through.
