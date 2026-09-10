@@ -180,7 +180,14 @@ export class DmxLightingPlugin implements IPlugin {
     this.sources.ensure(id, 1).setChannels(0, channels)
 
     if (options?.mappings && !this.patchedSources.has(id)) {
-      this.applyLegacyMappings(id, normalizeMappings(options.mappings))
+      // A sketch's first frame can beat the first composite tick after a project load, so
+      // re-read the stored patch before concluding this fixture has never been patched.
+      this.syncConfigFromStore(
+        this.engine.getStore().getState().paramValues as Record<string, unknown>,
+      )
+      if (!this.patchedSources.has(id)) {
+        this.applyLegacyMappings(id, normalizeMappings(options.mappings))
+      }
     }
   }
 
@@ -383,6 +390,14 @@ export class DmxLightingPlugin implements IPlugin {
     const profiles = this.profiles.filter((p) => !p.id.startsWith(generatedPrefix))
     const patch = this.patch.filter((e) => !e.profileId.startsWith(generatedPrefix))
 
+    // Keep entry ids stable across a re-patch so the tap's offset and gain nodes survive
+    // with whatever is mapped to them.
+    const existingIds = new Map(
+      this.patch
+        .filter((e) => e.profileId.startsWith(generatedPrefix))
+        .map((e) => [e.profileId, e.id]),
+    )
+
     mappings.forEach((mapping, index) => {
       if (mapping.channels.length === 0) return
       const profileId = `${generatedPrefix}${index}`
@@ -393,7 +408,7 @@ export class DmxLightingPlugin implements IPlugin {
         modes: [{ name: 'default', pixel: mapping.channels, pixelCount: 1 }],
       })
       patch.push({
-        id: makeEntryId(),
+        id: existingIds.get(profileId) ?? makeEntryId(),
         name: id,
         profileId,
         modeName: 'default',
