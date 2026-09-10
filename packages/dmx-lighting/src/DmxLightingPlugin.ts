@@ -459,8 +459,8 @@ export class DmxLightingPlugin implements IPlugin {
       tap.gain = typeof gain === 'number' ? gain : (entry?.gain ?? 1)
     }
 
-    resolveTaps(this.compiled)
-    executePatch(this.compiled, this.universes, brightness, dither)
+    resolveTaps(this.compiled, brightness)
+    executePatch(this.compiled, this.universes, dither)
 
     // Smoothing already happened per pixel, so the transport copies straight through.
     return { protocol, lerpSpeed: 0 }

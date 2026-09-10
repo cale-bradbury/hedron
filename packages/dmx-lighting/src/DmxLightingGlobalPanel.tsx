@@ -8,10 +8,13 @@ import {
   NodeContainer,
 } from '@hedron-gl/ui-core'
 import { HedronEngine } from '@hedron-gl/engine'
-import { DmxLightingPlugin, ChannelSlot, ChannelType } from './DmxLightingPlugin'
+import { DmxLightingPlugin, ChannelSlot } from './DmxLightingPlugin'
+import { ENCODER_KINDS, EncoderSpec, WheelEntry } from './encoders'
+import { WELL_KNOWN_FIELDS } from './fields'
 import { formatAddressList, parseAddressList } from './address'
 import { PIXEL_STRIDE } from './PixelSource'
 import {
+  FixtureMode,
   FixtureProfile,
   PatchEntry,
   TapArrangement,
@@ -31,7 +34,8 @@ export interface DmxLightingGlobalPanelProps {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CHANNEL_TYPES: ChannelType[] = ['red', 'green', 'blue', 'white', 'intensity']
+/** Offered in the slot dropdown; a profile may still name any field it likes. */
+const SLOT_FIELDS = WELL_KNOWN_FIELDS
 
 const CHANNEL_COLORS: Record<string, string> = {
   red: '#9b2e2e',
@@ -50,20 +54,31 @@ const MAX_PREVIEW_SWATCHES = 96
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 interface AddSlotEntry {
-  slotType: string // ChannelType | 'null' | 'absolute'
+  slotType: string // field name | 'null' | 'absolute'
   absVal: string
   scale: string
+  bits: string
 }
-const DEFAULT_ADD_SLOT: AddSlotEntry = { slotType: 'red', absVal: '0', scale: '' }
+const DEFAULT_ADD_SLOT: AddSlotEntry = { slotType: 'red', absVal: '0', scale: '', bits: '8' }
 
 function buildSlotFromEntry(entry: AddSlotEntry): ChannelSlot {
   if (entry.slotType === 'null') return null
   if (entry.slotType === 'absolute') {
     return { absolute: Math.min(255, Math.max(0, parseInt(entry.absVal, 10) || 0)) }
   }
-  const field = entry.slotType as ChannelType
+  const field = entry.slotType
   const scale = parseFloat(entry.scale)
-  if (!isNaN(scale) && entry.scale.trim() !== '') return { field, scale }
+  const hasScale = !isNaN(scale) && entry.scale.trim() !== ''
+
+  if (entry.bits === 'coarse' || entry.bits === 'fine') {
+    return {
+      field,
+      bits: 16 as const,
+      part: entry.bits,
+      ...(hasScale ? { scale } : {}),
+    }
+  }
+  if (hasScale) return { field, scale }
   return field
 }
 
@@ -166,7 +181,7 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
           onChange={(e) => setAddSlot(key, { slotType: e.target.value })}
           style={{ ...s.select, flex: '0 0 auto' }}
         >
-          {CHANNEL_TYPES.map((t) => (
+          {SLOT_FIELDS.map((t) => (
             <option key={t} value={t}>
               {t}
             </option>
@@ -174,6 +189,18 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
           <option value="absolute">absolute</option>
           <option value="null">null (pad)</option>
         </select>
+
+        {SLOT_FIELDS.includes(getAddSlot(key).slotType) && (
+          <select
+            value={getAddSlot(key).bits}
+            onChange={(e) => setAddSlot(key, { bits: e.target.value })}
+            style={{ ...s.select, flex: '0 0 auto' }}
+          >
+            <option value="8">8-bit</option>
+            <option value="coarse">16-bit coarse</option>
+            <option value="fine">16-bit fine</option>
+          </select>
+        )}
 
         {getAddSlot(key).slotType === 'absolute' && (
           <input
@@ -187,7 +214,7 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
           />
         )}
 
-        {CHANNEL_TYPES.includes(getAddSlot(key).slotType as ChannelType) && (
+        {SLOT_FIELDS.includes(getAddSlot(key).slotType) && (
           <>
             <span style={{ fontSize: '0.78em', opacity: 0.45 }}>× scale</span>
             <input
@@ -558,6 +585,18 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
                         </Button>
                       </div>
 
+                      <EncoderEditor
+                        mode={mode}
+                        onChange={(encoder) =>
+                          updateProfile(profile.id, {
+                            ...profile,
+                            modes: profile.modes.map((m) =>
+                              m.name === mode.name ? { ...m, encoder } : m,
+                            ),
+                          })
+                        }
+                      />
+
                       {renderSlotEditor(
                         `${entry.id}-pixel`,
                         'Pixel Channels (repeated per pixel)',
@@ -679,6 +718,143 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
   )
 }
 
+// ─── EncoderEditor ────────────────────────────────────────────────────────────
+
+interface EncoderEditorProps {
+  mode: FixtureMode
+  onChange: (encoder: EncoderSpec | undefined) => void
+}
+
+/** Picks how a colour becomes this mode's fields, plus the options that kind needs. */
+function EncoderEditor({ mode, onChange }: EncoderEditorProps) {
+  const encoder = mode.encoder
+  const kind = encoder?.kind ?? 'passthrough'
+  const entries: WheelEntry[] = encoder?.kind === 'wheel' ? encoder.entries : []
+
+  const setWheelEntries = (next: WheelEntry[]) => {
+    if (encoder?.kind !== 'wheel') return
+    onChange({ ...encoder, entries: next })
+  }
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={s.fieldLabel}>Encoder</div>
+      <select
+        value={kind}
+        onChange={(e) => {
+          const next = e.target.value as EncoderSpec['kind']
+          if (next === 'passthrough') onChange(undefined)
+          else if (next === 'wheel') onChange({ kind: 'wheel', entries: [], carryIntensity: true })
+          else if (next === 'rgbw' || next === 'rgbwa')
+            onChange({ kind: next, whiteExtract: 'min' })
+          else onChange({ kind: next })
+        }}
+        style={s.select}
+      >
+        {ENCODER_KINDS.map((k) => (
+          <option key={k} value={k}>
+            {k}
+          </option>
+        ))}
+      </select>
+
+      {(encoder?.kind === 'rgbw' || encoder?.kind === 'rgbwa') && (
+        <div style={{ marginTop: 6 }}>
+          <div style={s.fieldLabel}>White Extraction</div>
+          <select
+            value={encoder.whiteExtract ?? 'min'}
+            onChange={(e) =>
+              onChange({
+                ...encoder,
+                whiteExtract: e.target.value as 'none' | 'min' | 'max-preserve',
+              })
+            }
+            style={s.select}
+          >
+            <option value="none">none (source white only)</option>
+            <option value="min">min (pull common grey out)</option>
+            <option value="max-preserve">max-preserve</option>
+          </select>
+        </div>
+      )}
+
+      {encoder?.kind === 'wheel' && (
+        <div style={{ marginTop: 6 }}>
+          <label style={s.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={encoder.carryIntensity !== false}
+              onChange={(e) => onChange({ ...encoder, carryIntensity: e.target.checked })}
+            />
+            <span>brightness on the intensity channel</span>
+          </label>
+
+          <div style={{ ...s.fieldLabel, marginTop: 6 }}>Wheel Positions</div>
+          {entries.map((wheelEntry, index) => (
+            <div key={index} style={s.wheelRow}>
+              <input
+                type="number"
+                min={0}
+                max={255}
+                value={wheelEntry.value}
+                onChange={(e) =>
+                  setWheelEntries(
+                    entries.map((w, i) =>
+                      i === index ? { ...w, value: parseInt(e.target.value, 10) || 0 } : w,
+                    ),
+                  )
+                }
+                style={{ ...s.numInput, width: 62 }}
+              />
+              <input
+                type="color"
+                value={wheelEntry.color}
+                onChange={(e) =>
+                  setWheelEntries(
+                    entries.map((w, i) => (i === index ? { ...w, color: e.target.value } : w)),
+                  )
+                }
+                style={{ width: 38, height: 22, padding: 0, border: '1px solid #333' }}
+              />
+              <input
+                type="text"
+                value={wheelEntry.label ?? ''}
+                placeholder="label"
+                onChange={(e) =>
+                  setWheelEntries(
+                    entries.map((w, i) => (i === index ? { ...w, label: e.target.value } : w)),
+                  )
+                }
+                style={{ ...s.textInput, flex: 1 }}
+              />
+              <Button
+                type="danger"
+                size="slim"
+                iconName="delete"
+                onClick={() => setWheelEntries(entries.filter((_, i) => i !== index))}
+              >
+                {''}
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="secondary"
+            size="slim"
+            iconName="add"
+            onClick={() => setWheelEntries([...entries, { value: 0, color: '#ffffff' }])}
+          >
+            Add Position
+          </Button>
+          <div style={s.hint}>
+            The closest position in Oklab wins, matched on hue rather than level so a dimmed colour
+            still picks its own.
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── SourcePreview ────────────────────────────────────────────────────────────
 
 interface SourcePreviewProps {
@@ -795,12 +971,16 @@ function SlotRow({ slot, onUpdate }: SlotRowProps) {
     )
   }
 
-  // { field, scale? }
+  // { field, scale?, bits?, part? }
+  const wide = slot.bits === 16 ? { bits: 16 as const, part: slot.part } : {}
   return (
     <>
       <span style={{ ...s.chip, background: CHANNEL_COLORS[slot.field] ?? '#444' }}>
         {slot.field}
       </span>
+      {slot.bits === 16 && (
+        <span style={{ ...s.chip, background: '#2f4858' }}>16 {slot.part ?? 'coarse'}</span>
+      )}
       <span style={s.dimLabel}>× scale</span>
       <input
         key={`field-${slot.field}-${slot.scale}`}
@@ -810,11 +990,13 @@ function SlotRow({ slot, onUpdate }: SlotRowProps) {
         step={0.01}
         onBlur={(e) => {
           if (e.target.value.trim() === '') {
-            onUpdate(slot.field)
+            onUpdate(slot.bits === 16 ? { field: slot.field, ...wide } : slot.field)
             return
           }
           const v = parseFloat(e.target.value)
-          if (!isNaN(v)) onUpdate(v === 1 ? slot.field : { field: slot.field, scale: v })
+          if (isNaN(v)) return
+          if (v === 1 && slot.bits !== 16) onUpdate(slot.field)
+          else onUpdate({ field: slot.field, ...wide, ...(v === 1 ? {} : { scale: v }) })
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
@@ -955,6 +1137,13 @@ const s = {
     borderRadius: 4,
     padding: '5px 8px',
     marginBottom: 8,
+  } as React.CSSProperties,
+
+  wheelRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 5,
   } as React.CSSProperties,
 
   checkboxRow: {

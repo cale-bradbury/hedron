@@ -21,6 +21,8 @@ packages/
       DmxLightingGlobalPanel.tsx
       types.ts                ← channel/slot types
       profiles.ts             ← FixtureProfile / FixtureMode / Tap / PatchEntry
+      encoders.ts             ← colour -> device fields, incl. Oklab wheel matching
+      fields.ts               ← open field-name registry
       PixelSource.ts          ← named pixel buffers + smoothing + SourceRegistry
       PatchCompiler.ts        ← compiles the patch to flat arrays, resolves taps, writes
       address.ts              ← { universe, channel } addressing + parse/format
@@ -107,9 +109,10 @@ source("strip", 38).set(pixelIndex, r, g, b, w, intensity)
 type Address = { universe: number; channel: number }   // channel 1–512
 
 type ChannelSlot =
-  | ChannelType                              // read the field, apply brightness
-  | { field: ChannelType; scale?: number }   // read + per-slot scale
-  | { absolute: number }                     // fixed 0–255, brightness NOT applied
+  | FieldName                                // any field name, open registry
+  | { field: FieldName; scale?: number;      // read + per-slot scale
+      bits?: 8 | 16; part?: 'coarse' | 'fine' }   // half of a 16-bit pair
+  | { absolute: number }                     // fixed 0–255
   | null                                     // always 0 (padding)
 
 interface FixtureMode {
@@ -118,6 +121,7 @@ interface FixtureMode {
   pixel: ChannelSlot[]     // layout of ONE pixel
   pixelCount: number       // 1 = pot light, 38 = bar
   pixelStride?: number     // defaults to pixel.length
+  encoder?: EncoderSpec    // colour -> fields; defaults to passthrough
 }
 
 interface Tap {
@@ -174,11 +178,16 @@ still broadcasts to a whole fixture.
 ```
 source pixel -> smoothing (per pixel, linear-rgb or curved-hsb)
              -> tap (arrangement, offset, step, wrap, fit, filter)
-             -> per-entry gain (not applied to intensity)
-             -> slot resolution (field, scale, absolute, pad)
-             -> master brightness (not applied to intensity or absolute slots)
+             -> per-entry gain, then master brightness (colour only)
+             -> encoder -> named device fields
+             -> slot resolution (field, scale, absolute, pad, 16-bit part)
              -> optional temporal dither -> byte -> universe buffer
 ```
+
+Gain and brightness scale the colour before encoding and deliberately leave the source
+intensity alone, so an RGBW+intensity fixture does not dim twice. Encoders that drive a
+dimmer channel derive it from the already-scaled colour, so brightness still reaches a
+dimmer-only or colour-wheel fixture — through the channel that fixture actually has.
 
 Each frame runs `resolveTaps()` then `executePatch()`. Resolve samples every tap into
 one shared buffer of instance pixels; execute is the flat write loop reading that
@@ -209,6 +218,49 @@ DMX512 ceiling. `scheduleFrame` subtracts the time the frame took rather than ad
 full delay after it — doing the latter cost about half the achievable rate and showed
 up as stepping on moving gradients.
 
+## Encoders
+
+A mode may declare how a colour becomes its fields. `passthrough` is the default and
+writes red/green/blue/white/intensity unchanged, so every profile written before
+encoders behaves exactly as it did.
+
+| Kind | Produces | Notes |
+| --- | --- | --- |
+| `passthrough` | r, g, b, w, intensity | the pre-encoder behaviour |
+| `rgb` | r, g, b | |
+| `rgbw` | + white | `whiteExtract`: none / min / max-preserve, configurable white point |
+| `rgbwa` | + amber | amber pulled from what is left after white |
+| `cmy` | cyan, magenta, yellow | subtractive |
+| `dimmer` | dimmer, intensity | Rec. 709 luma |
+| `hsi` | hue, saturation, intensity | |
+| `wheel` | wheel, intensity | nearest palette entry in Oklab |
+
+The wheel matches on hue rather than level — the colour is normalised before comparing —
+so a dimmed blue still selects blue and the level lands on the intensity channel instead
+of dragging the match toward black. White extraction for `rgbwa` is a practical
+heuristic, not a spectral fit; it pulls the common grey onto white, then pulls amber out
+of the remainder the same way.
+
+## 16-bit channels
+
+A slot may take half of a 16-bit pair:
+
+```typescript
+pixel: [{ field: 'pan', bits: 16, part: 'coarse' }, { field: 'pan', bits: 16, part: 'fine' }]
+```
+
+The field is scaled to 0-65535 and split. The coarse byte is never dithered, since the
+fine byte already carries that resolution and dithering the two independently would
+fight.
+
+## Field names
+
+`FieldName` is an open string. `WELL_KNOWN_FIELDS` seeds the table and the slot dropdown
+(red, green, blue, white, amber, uv, cyan, magenta, yellow, intensity, dimmer, hue,
+saturation, wheel, strobe, pan, tilt, zoom, focus, gobo, prism, cto, speed), but a
+profile may name anything and the compiler appends it. Fields no encoder writes resolve
+to 0 until something drives them, so a pan channel today needs an `{ absolute }` slot.
+
 ## Persistence and migration
 
 Stored in `paramValues` under `dmx-lighting-profiles`, `dmx-lighting-patch` and
@@ -225,11 +277,12 @@ pnpm --filter @hedron-gl/dmx-lighting verify
 ```
 
 Builds the package and runs `scripts/verify-patch.mjs`, which asserts universe bytes for
-fan-out, a 38-pixel bar, mid-strip sampling, header/absolute/pad slots, short-source
-broadcast, multi-universe routing, conflict detection and dirty tracking.
+fan-out, a 38-pixel bar, mid-strip sampling, tap transforms, encoders, 16-bit pairs,
+header/absolute/pad slots, short-source broadcast, multi-universe routing, conflict
+detection, dithering and dirty tracking.
 
 ## Next phase
 
-See `docs/PIXEL_PIPELINE_PLAN.md`. Phases 0, 1 and 2 are done. Phase 3 adds encoders —
-RGBW white extraction, CMY, colour wheels for fixed-colour fixtures, 16-bit slots for
-movers, and an open field registry so new devices need no type change.
+See `docs/PIXEL_PIPELINE_PLAN.md`. Phases 0 to 3 are done. Phase 4 is the patch UI and
+fixture library — a profile library, a sortable patch table, auto-addressing, overlap
+detection and a universe heatmap.

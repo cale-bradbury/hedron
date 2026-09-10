@@ -28,6 +28,10 @@ export type {
   TapFit,
   TapFilter,
 } from './profiles'
+export { makeEncoder, encoderFields, rgbToOklab, parseHexColor, ENCODER_KINDS } from './encoders'
+export type { EncoderSpec, Encoder, WheelEntry } from './encoders'
+export { FieldTable, WELL_KNOWN_FIELDS, COLOUR_FIELDS } from './fields'
+export type { FieldName } from './fields'
 export { UniverseSet } from './UniverseSet'
 export { UniverseSender, SEND_INTERVAL_MS } from './UniverseSender'
 export { DMX_UNIVERSE_SIZE, toAddress, parseAddressList, formatAddressList } from './address'

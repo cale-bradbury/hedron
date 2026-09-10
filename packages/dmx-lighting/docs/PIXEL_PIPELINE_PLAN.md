@@ -1,6 +1,6 @@
 # DMX Pixel Pipeline — Architecture & Implementation Plan
 
-Status: phases 0-2 implemented; 3 onward proposed. Supersedes the "Next phase" section of `../DMX.md`.
+Status: phases 0-3 implemented; 4 onward proposed. Supersedes the "Next phase" section of `../DMX.md`.
 
 ## Why
 
@@ -227,7 +227,7 @@ pixelCount: 38` driven by a 38-pixel source, and every existing fixture still wo
 a distinct pixel or span from the strip source while keeping their own intensity and strobe
 channels.
 
-### Phase 3 — Encoders and fixture modes
+### Phase 3 — Encoders and fixture modes  ✅ done
 
 1. Encoder registry: `rgb`, `rgbw` (white extraction `none` / `min` / `max-preserve` with a
    configurable white point), `rgbwa` / `rgbwauv` via a generalised primaries fit, `cmy`,

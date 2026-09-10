@@ -33,8 +33,8 @@ function run(profiles, patch, prime, brightness = 1) {
   const compiled = compilePatch(patch, profiles, registry)
   // Sources start smoothed to nothing, so settle them before executing.
   registry.smoothAll(1, 'linear-rgb')
-  resolveTaps(compiled)
-  executePatch(compiled, universes, brightness)
+  resolveTaps(compiled, brightness)
+  executePatch(compiled, universes)
   return { universes, compiled, registry }
 }
 
@@ -240,18 +240,18 @@ const barProfile = {
   )
 
   registry.smoothAll(1, 'linear-rgb')
-  resolveTaps(compiled)
-  executePatch(compiled, universes, 1)
+  resolveTaps(compiled, 1)
+  executePatch(compiled, universes)
   check('first frame is dirty', universes.takeDirty().length, 1)
 
-  resolveTaps(compiled)
-  executePatch(compiled, universes, 1)
+  resolveTaps(compiled, 1)
+  executePatch(compiled, universes)
   check('unchanged frame sends nothing', universes.takeDirty().length, 0)
 
   registry.ensure('s').set(0, 10, 20, 31, 0, 255)
   registry.smoothAll(1, 'linear-rgb')
-  resolveTaps(compiled)
-  executePatch(compiled, universes, 1)
+  resolveTaps(compiled, 1)
+  executePatch(compiled, universes)
   check('changed byte is dirty again', universes.takeDirty().length, 1)
 }
 
@@ -278,8 +278,8 @@ const barProfile = {
 
   const frames = []
   for (let f = 0; f < 8; f++) {
-    resolveTaps(compiled)
-    executePatch(compiled, universes, 0.5, true)
+    resolveTaps(compiled, 0.5)
+    executePatch(compiled, universes, true)
     frames.push(slice(universes, 0, 1, 1)[0])
   }
 
@@ -290,8 +290,8 @@ const barProfile = {
   // Without dithering the same value sticks on one code every frame.
   const plain = []
   for (let f = 0; f < 4; f++) {
-    resolveTaps(compiled)
-    executePatch(compiled, universes, 0.5, false)
+    resolveTaps(compiled, 0.5)
+    executePatch(compiled, universes, false)
     plain.push(slice(universes, 0, 1, 1)[0])
   }
   check('undithered output is constant', [...new Set(plain)], [100])
@@ -299,11 +299,11 @@ const barProfile = {
   // An integer value has no error to carry, so it stays put and keeps the wire quiet.
   registry.ensure('s').set(0, 200, 0, 0, 0, 255)
   registry.smoothAll(1, 'linear-rgb')
-  resolveTaps(compiled)
-  executePatch(compiled, universes, 0.5, true)
+  resolveTaps(compiled, 0.5)
+  executePatch(compiled, universes, true)
   universes.takeDirty()
-  resolveTaps(compiled)
-  executePatch(compiled, universes, 0.5, true)
+  resolveTaps(compiled, 0.5)
+  executePatch(compiled, universes, true)
   check('exact values do not flutter', universes.takeDirty().length, 0)
 }
 
@@ -476,14 +476,153 @@ function reds(universes, count = 8) {
   registry.smoothAll(1, 'linear-rgb')
 
   compiled.taps[0].offset = 2
-  resolveTaps(compiled)
-  executePatch(compiled, universes, 1)
+  resolveTaps(compiled, 1)
+  executePatch(compiled, universes)
   check('animated offset scrolls the pattern', reds(universes), [20, 30, 40, 50, 60, 70, 0, 10])
 
   compiled.taps[0].offset = 5
-  resolveTaps(compiled)
-  executePatch(compiled, universes, 1)
+  resolveTaps(compiled, 1)
+  executePatch(compiled, universes)
   check('and again next frame', reds(universes), [50, 60, 70, 0, 10, 20, 30, 40])
+}
+
+// ── Encoders ─────────────────────────────────────────────────────────────────
+
+/** One fixture at channel 1 with the given pixel layout and encoder. */
+function runEncoder(pixel, encoder, colour, brightness = 1) {
+  return run(
+    [
+      {
+        id: 'enc',
+        name: 'Encoded',
+        shape: 'par',
+        modes: [{ name: 'default', pixel, pixelCount: 1, encoder }],
+      },
+    ],
+    [
+      {
+        id: 'e1',
+        profileId: 'enc',
+        modeName: 'default',
+        addresses: [{ universe: 0, channel: 1 }],
+        tap: { source: 's' },
+      },
+    ],
+    (registry) => registry.ensure('s', 1).set(0, ...colour),
+    brightness,
+  )
+}
+
+// rgbw pulls the common grey onto the white emitter.
+{
+  const { universes } = runEncoder(
+    ['red', 'green', 'blue', 'white'],
+    { kind: 'rgbw', whiteExtract: 'min' },
+    [200, 150, 100, 0, 255],
+  )
+  check('rgbw extracts the common grey', slice(universes, 0, 1, 4), [100, 50, 0, 100])
+
+  const none = runEncoder(
+    ['red', 'green', 'blue', 'white'],
+    { kind: 'rgbw', whiteExtract: 'none' },
+    [200, 150, 100, 0, 255],
+  )
+  check(
+    'white extraction off leaves colour alone',
+    slice(none.universes, 0, 1, 4),
+    [200, 150, 100, 0],
+  )
+}
+
+// rgbwa takes amber out of what is left after white.
+{
+  const { universes } = runEncoder(
+    ['red', 'green', 'blue', 'white', 'amber'],
+    { kind: 'rgbwa', whiteExtract: 'min' },
+    [255, 170, 0, 0, 255],
+  )
+  const [r, g, b, w, a] = slice(universes, 0, 1, 5)
+  check('rgbwa puts pure amber on the amber emitter', [r, g, b, w], [0, 0, 0, 0])
+  check('rgbwa amber level', a, 255)
+}
+
+// cmy is subtractive, so full red is no cyan and full magenta and yellow.
+{
+  const { universes } = runEncoder(
+    ['cyan', 'magenta', 'yellow'],
+    { kind: 'cmy' },
+    [255, 0, 0, 0, 255],
+  )
+  check('cmy inverts the primaries', slice(universes, 0, 1, 3), [0, 255, 255])
+}
+
+// A dimmer fixture has no colour, so brightness has to reach it through luma.
+{
+  const full = runEncoder(['dimmer'], { kind: 'dimmer' }, [255, 255, 255, 0, 255])
+  check('dimmer follows luminance', slice(full.universes, 0, 1, 1), [255])
+
+  const half = runEncoder(['dimmer'], { kind: 'dimmer' }, [255, 255, 255, 0, 255], 0.5)
+  check('master brightness reaches the dimmer channel', slice(half.universes, 0, 1, 1), [128])
+}
+
+// The wheel picks the nearest palette entry in Oklab, on hue not level.
+{
+  const wheel = {
+    kind: 'wheel',
+    carryIntensity: true,
+    entries: [
+      { value: 0, color: '#ffffff' },
+      { value: 10, color: '#ff0000' },
+      { value: 40, color: '#00ff00' },
+      { value: 60, color: '#0000ff' },
+    ],
+  }
+
+  const red = runEncoder(['wheel', 'intensity'], wheel, [200, 20, 20, 0, 255])
+  check('wheel picks red', slice(red.universes, 0, 1, 1), [10])
+
+  const green = runEncoder(['wheel', 'intensity'], wheel, [20, 200, 20, 0, 255])
+  check('wheel picks green', slice(green.universes, 0, 1, 1), [40])
+
+  // A dark blue still selects blue, and the level lands on intensity instead.
+  const dim = runEncoder(['wheel', 'intensity'], wheel, [0, 0, 60, 0, 255])
+  check('wheel matches hue on a dim colour', slice(dim.universes, 0, 1, 1), [60])
+  check('wheel carries level on intensity', slice(dim.universes, 0, 2, 1), [4])
+}
+
+// 16-bit pairs give a mover the resolution a single byte cannot.
+{
+  const { universes } = runEncoder(
+    [
+      { field: 'red', bits: 16, part: 'coarse' },
+      { field: 'red', bits: 16, part: 'fine' },
+    ],
+    { kind: 'rgb' },
+    [128, 0, 0, 0, 255],
+  )
+  // 128/255 of 65535 is 32896, which is 0x8080.
+  check('16-bit splits across coarse and fine', slice(universes, 0, 1, 2), [128, 128])
+
+  const top = runEncoder(
+    [
+      { field: 'red', bits: 16, part: 'coarse' },
+      { field: 'red', bits: 16, part: 'fine' },
+    ],
+    { kind: 'rgb' },
+    [255, 0, 0, 0, 255],
+  )
+  check('16-bit full scale', slice(top.universes, 0, 1, 2), [255, 255])
+}
+
+// Unknown field names are legal; they simply resolve to nothing until something writes them.
+{
+  const { universes, compiled } = runEncoder(
+    ['red', 'pan', 'gobo'],
+    { kind: 'rgb' },
+    [255, 0, 0, 0, 255],
+  )
+  check('unknown fields are patchable', slice(universes, 0, 1, 3), [255, 0, 0])
+  check('field table covers them', compiled.fields.has('gobo'), true)
 }
 
 console.log(`${checks - failures}/${checks} checks passed`)

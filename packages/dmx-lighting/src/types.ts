@@ -1,4 +1,5 @@
 import type { Address } from './address'
+import type { FieldName } from './fields'
 
 export type DmxProtocol = 'artnet' | 'sacn' | 'usb'
 export type LerpMode = 'linear-rgb' | 'curved-hsb'
@@ -6,14 +7,14 @@ export type ChannelType = 'red' | 'green' | 'blue' | 'white' | 'intensity'
 
 /**
  * A single channel slot in a FixtureMapping.
- * - `ChannelType` string: read from virtual channels, apply global brightness (except 'intensity')
+ * - a field name: read that field of the encoded pixel, e.g. 'red' or 'pan'
  * - `{ field, scale? }`: read field, apply brightness, then multiply by per-slot scale
  * - `{ absolute }`: fixed 0–255 value, brightness NOT applied
  * - `null`: always outputs 0 (padding channel)
  */
 export type ChannelSlot =
-  | ChannelType
-  | { field: ChannelType; scale?: number }
+  | FieldName
+  | { field: FieldName; scale?: number; bits?: 8 | 16; part?: 'coarse' | 'fine' }
   | { absolute: number }
   | null
 
