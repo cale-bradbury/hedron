@@ -28,9 +28,15 @@ const FTDI_LINE_8N2 = 0x1008
 // Same but with BREAK bit (bit 14) set = 0x5008
 const FTDI_LINE_8N2_BREAK = 0x5008
 
-// Target frame period. The 513-byte packet takes ~23ms on its own, so this is close to
-// the ~44fps DMX512 ceiling and the loop is paced by the wire rather than by the timer.
-const DMX_FRAME_MS = 25
+const DMX_BREAK_MS = 2
+const DMX_MAB_MS = 1
+// 513 slots x 11 bits at 250 kbaud = 22.6ms on the wire. transferAsync resolves when the
+// packet reaches the FT232R's FIFO, not when the UART has clocked it out, so elapsed time
+// tells us nothing about the drain and the period has to cover it explicitly.
+const DMX_DATA_MS = 23
+// Mark time before the next BREAK. Raise this first if frames tear.
+const DMX_GUARD_MS = 4
+const DMX_FRAME_MS = DMX_BREAK_MS + DMX_MAB_MS + DMX_DATA_MS + DMX_GUARD_MS // 30ms, ~33fps
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 // The renderer composites fixtures into universe buffers; this process only
@@ -57,6 +63,8 @@ class DmxService {
   private running = false
   private initPromise: Promise<void> | null = null
   private lastSentTime: Date | null = null
+  private lastFrameAt = 0
+  private framePeriodMs = 0
 
   // ── Public API ───────────────────────────────────────────────────────────
 
@@ -70,7 +78,9 @@ class DmxService {
   /** Accepts a composited universe from the renderer; universe 0 is what reaches the wire. */
   writeUniverse(universe: number, bytes: Uint8Array, lerpSpeed: number): void {
     if (bytes.length !== DMX_UNIVERSE_SIZE) {
-      console.warn(`[DMX] Ignoring universe ${universe}: expected ${DMX_UNIVERSE_SIZE} bytes, got ${bytes.length}`)
+      console.warn(
+        `[DMX] Ignoring universe ${universe}: expected ${DMX_UNIVERSE_SIZE} bytes, got ${bytes.length}`,
+      )
       return
     }
 
@@ -85,6 +95,7 @@ class DmxService {
     this.targetUniverse.set(bytes)
     if (!this.isReady) void this.initialize()
   }
+
   async getDevices(): Promise<object[]> {
     const found = !!findByIds(FTDI_VID, FTDI_PID)
     const activeChannels: Array<[number, number]> = []
@@ -97,14 +108,16 @@ class DmxService {
         path: 'ftdi://0x0403:0x6001/1',
         driver: 'usb npm package (libusb, pure JS)',
         status: this.isReady
-          ? 'Active'
+          ? `Active — ${this.framePeriodMs > 0 ? (1000 / this.framePeriodMs).toFixed(1) : '?'} fps`
           : found
             ? 'Device found, not initialised'
             : 'Device not found',
         lastSent: this.lastSentTime
           ? `${this.lastSentTime.toLocaleTimeString()}: ${activeChannels.length} active channels`
           : undefined,
-        lastData: this.lastSentTime ? JSON.stringify(Object.fromEntries(activeChannels)) : undefined,
+        lastData: this.lastSentTime
+          ? JSON.stringify(Object.fromEntries(activeChannels))
+          : undefined,
       },
     ]
   }
@@ -192,11 +205,23 @@ class DmxService {
     if (!this.running) return
     setTimeout(async () => {
       const startedAt = Date.now()
+      this.recordFramePeriod(startedAt)
       await this.sendFrame()
-      // The frame itself costs ~25ms (BREAK + MAB + 513 bytes at 250kbaud), so wait only
-      // for the remainder of the period rather than adding a full delay on top of it.
-      this.scheduleFrame(Math.max(0, DMX_FRAME_MS - (Date.now() - startedAt)))
+      // Paced from the start of the frame and never closer than the guard, so the next
+      // BREAK cannot land while the UART is still clocking out this packet.
+      const remaining = DMX_FRAME_MS - (Date.now() - startedAt)
+      this.scheduleFrame(Math.max(DMX_GUARD_MS, remaining))
     }, delayMs)
+  }
+
+  /** Rolling average of the real frame period, so the achieved rate is observable. */
+  private recordFramePeriod(startedAt: number): void {
+    if (this.lastFrameAt > 0) {
+      const period = startedAt - this.lastFrameAt
+      this.framePeriodMs =
+        this.framePeriodMs === 0 ? period : this.framePeriodMs * 0.9 + period * 0.1
+    }
+    this.lastFrameAt = startedAt
   }
 
   private async sendFrame(): Promise<void> {
