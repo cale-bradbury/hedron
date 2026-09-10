@@ -26,6 +26,8 @@ export interface CompiledPatch {
   useBrightness: Uint8Array
   universe: Int32Array
   channel: Int32Array
+  /** Per-channel quantisation error carried into the next frame when dithering. */
+  residual: Float32Array
 }
 
 interface PendingWrite {
@@ -156,6 +158,7 @@ export function compilePatch(
     useBrightness: new Uint8Array(n),
     universe: new Int32Array(n),
     channel: new Int32Array(n),
+    residual: new Float32Array(n),
   }
 
   for (let i = 0; i < n; i++) {
@@ -191,11 +194,18 @@ export function findAddressConflicts(compiled: CompiledPatch): Array<{
   return [...clashes.values()]
 }
 
-/** Executes a compiled patch into the universe buffers; the whole per-frame hot path. */
+/**
+ * Executes a compiled patch into the universe buffers; the whole per-frame hot path.
+ *
+ * With `dither`, the fraction a channel loses to 8-bit rounding is carried into the next
+ * frame, so a value of 100.25 alternates 100/100/100/101 and averages to 100.25 over time.
+ * Trades a 1-LSB flutter at the refresh rate for effective sub-byte resolution.
+ */
 export function executePatch(
   compiled: CompiledPatch,
   universes: UniverseSet,
   brightness: number,
+  dither = false,
 ): void {
   for (let i = 0; i < compiled.writeCount; i++) {
     let value: number
@@ -206,6 +216,18 @@ export function executePatch(
     } else {
       value = compiled.constValue[i]
     }
+
+    if (dither) {
+      const wanted = value + compiled.residual[i]
+      const out = wanted < 0 ? 0 : wanted > 255 ? 255 : Math.round(wanted)
+      // Clamped so a saturated channel cannot accumulate an unbounded debt.
+      const error = wanted - out
+      compiled.residual[i] = error < -1 ? -1 : error > 1 ? 1 : error
+      value = out
+    } else if (compiled.residual[i] !== 0) {
+      compiled.residual[i] = 0
+    }
+
     universes.write(compiled.universe[i], compiled.channel[i], value)
   }
 }

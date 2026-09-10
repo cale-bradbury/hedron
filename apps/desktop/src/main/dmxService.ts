@@ -28,7 +28,9 @@ const FTDI_LINE_8N2 = 0x1008
 // Same but with BREAK bit (bit 14) set = 0x5008
 const FTDI_LINE_8N2_BREAK = 0x5008
 
-const DMX_FRAME_MS = 30 // ~33 fps
+// Target frame period. The 513-byte packet takes ~23ms on its own, so this is close to
+// the ~44fps DMX512 ceiling and the loop is paced by the wire rather than by the timer.
+const DMX_FRAME_MS = 25
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 // The renderer composites fixtures into universe buffers; this process only
@@ -186,12 +188,15 @@ class DmxService {
   }
 
   /** Recursive scheduler — ensures at most one frame in-flight at a time. */
-  private scheduleFrame(): void {
+  private scheduleFrame(delayMs: number = DMX_FRAME_MS): void {
     if (!this.running) return
     setTimeout(async () => {
+      const startedAt = Date.now()
       await this.sendFrame()
-      this.scheduleFrame()
-    }, DMX_FRAME_MS)
+      // The frame itself costs ~25ms (BREAK + MAB + 513 bytes at 250kbaud), so wait only
+      // for the remainder of the period rather than adding a full delay on top of it.
+      this.scheduleFrame(Math.max(0, DMX_FRAME_MS - (Date.now() - startedAt)))
+    }, delayMs)
   }
 
   private async sendFrame(): Promise<void> {

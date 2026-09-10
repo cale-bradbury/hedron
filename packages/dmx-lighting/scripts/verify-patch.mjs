@@ -250,5 +250,53 @@ const barProfile = {
   check('changed byte is dirty again', universes.takeDirty().length, 1)
 }
 
+// ── Temporal dithering: sub-byte values average out across frames ────────────
+{
+  const registry = new SourceRegistry()
+  // 100.25 after brightness, so a quarter of a step is lost to 8-bit rounding.
+  registry.ensure('s', 1).set(0, 200.5, 0, 0, 0, 255)
+  const universes = new UniverseSet()
+  const compiled = compilePatch(
+    [
+      {
+        id: 'e1',
+        profileId: 'par',
+        modeName: 'rgbwi',
+        addresses: [{ universe: 0, channel: 1 }],
+        tap: { source: 's' },
+      },
+    ],
+    [parProfile],
+    registry,
+  )
+  registry.smoothAll(1, 'linear-rgb')
+
+  const frames = []
+  for (let f = 0; f < 8; f++) {
+    executePatch(compiled, universes, 0.5, true)
+    frames.push(slice(universes, 0, 1, 1)[0])
+  }
+
+  const mean = frames.reduce((a, b) => a + b, 0) / frames.length
+  check('dither straddles the two nearest codes', [...new Set(frames)].sort(), [100, 101])
+  check('dither averages to the true value', mean, 100.25)
+
+  // Without dithering the same value sticks on one code every frame.
+  const plain = []
+  for (let f = 0; f < 4; f++) {
+    executePatch(compiled, universes, 0.5, false)
+    plain.push(slice(universes, 0, 1, 1)[0])
+  }
+  check('undithered output is constant', [...new Set(plain)], [100])
+
+  // An integer value has no error to carry, so it stays put and keeps the wire quiet.
+  registry.ensure('s').set(0, 200, 0, 0, 0, 255)
+  registry.smoothAll(1, 'linear-rgb')
+  executePatch(compiled, universes, 0.5, true)
+  universes.takeDirty()
+  executePatch(compiled, universes, 0.5, true)
+  check('exact values do not flutter', universes.takeDirty().length, 0)
+}
+
 console.log(`${checks - failures}/${checks} checks passed`)
 if (failures > 0) process.exit(1)

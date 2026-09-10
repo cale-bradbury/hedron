@@ -17,7 +17,7 @@ packages/
       PIXEL_PIPELINE_PLAN.md  ← architecture & phased plan for strips/pixel mapping
     src/
       DmxLightingPlugin.ts    ← plugin class, setFixtureColor() API, compositor
-      DmxLightingConfig.ts    ← global option nodes (protocol, brightness, lerpSpeed)
+      DmxLightingConfig.ts    ← global option nodes (protocol, brightness, lerp, dither)
       DmxLightingGlobalPanel.tsx
       types.ts                ← channel/slot types
       profiles.ts             ← FixtureProfile / FixtureMode / Tap / PatchEntry
@@ -28,11 +28,11 @@ packages/
       UniverseSet.ts          ← 512-byte buffers per universe + dirty tracking
       UniverseSender.ts       ← fixed-rate (~44fps) composite-and-flush loop
       core.ts                 ← engine-free exports, for the headless verifier
-    scripts/
-      verify-patch.mjs        ← asserts universe bytes with no hardware (pnpm verify)
       protocols/
         ArtNetSender.ts       ← stub, consumes raw universe bytes
         SacnSender.ts         ← stub, consumes raw universe bytes
+    scripts/
+      verify-patch.mjs        ← asserts universe bytes with no hardware (pnpm verify)
 
 apps/desktop/
   src/main/
@@ -73,12 +73,15 @@ Send tick (renderer, every 23ms ≈ 44fps — UniverseSender)
                  └─ universe 0 -> targetUniverse; others held for Art-Net/sACN
        └─ protocol === "artnet" | "sacn": sender.sendUniverse(universe, bytes)  [stubs]
 
-Frame loop (main process, ~33ms — unchanged)
+Frame loop (main process, paced by the wire at ~38-40fps)
   └─ FTDI BREAK, release, bulk OUT: [0x00] + universe[0..511]
 ```
 
 Smoothing happens per pixel in the renderer, so the transport is told lerpSpeed 0 and
 copies straight through. Only universes whose bytes changed cross the IPC boundary.
+
+---
+
 ## USB hardware layer
 
 - **Device**: Enttec Open DMX USB (or any FTDI FT232R-based "dumb" open DMX dongle)
@@ -144,12 +147,35 @@ source pixel -> smoothing (per pixel, linear-rgb or curved-hsb)
              -> tap (offset/count; clamps past the end of the source)
              -> slot resolution (field, scale, absolute, pad)
              -> master brightness (not applied to intensity or absolute slots)
-             -> byte -> universe buffer
+             -> optional temporal dither -> byte -> universe buffer
 ```
 
 Compilation flattens the whole patch to one entry per output byte, so the per-frame
 loop does no lookups, allocation or slot-shape branching. Cost is O(total pixels),
 independent of fixture count.
+
+### Temporal dithering
+
+DMX carries 8 bits per channel, and a slow fade shows all 256 steps — worst at the
+bottom of the range, where one code is a large relative change in light. The
+**Temporal Dither** option (on by default) carries each channel’s rounding error into
+the next frame, so 100.25 goes out as 100, 100, 100, 101 and averages correctly. It
+buys sub-byte resolution in exchange for a 1-LSB flutter at the refresh rate.
+
+Exact integer values carry no error, so a settled scene still sends nothing. Turn the
+option off for fixtures that do their own smoothing or visibly flicker.
+
+This is a workaround for 8-bit channels, not a substitute for a fixture’s 16-bit mode;
+16-bit slots arrive with the encoders in phase 3.
+
+### Output rate
+
+The renderer composites every 23ms (~44fps). The main-process frame loop targets 25ms,
+but a frame costs ~25ms of wire time on its own (2ms BREAK + 1ms MAB + 22.6ms for 513
+bytes at 250kbaud, 8N2), so the loop is paced by the wire at roughly 38–40fps, near the
+DMX512 ceiling. `scheduleFrame` subtracts the time the frame took rather than adding a
+full delay after it — doing the latter cost about half the achievable rate and showed
+up as stepping on moving gradients.
 
 ## Persistence and migration
 

@@ -355,6 +355,7 @@ export class DmxLightingPlugin implements IPlugin {
     const brightness = (paramValues[`${this.id}-global-brightness`] as number) ?? 1
     const lerpSpeed = (paramValues[`${this.id}-global-lerpSpeed`] as number) ?? 0.2
     const lerpMode = (paramValues[`${this.id}-global-lerpMode`] as LerpMode) || 'linear-rgb'
+    const dither = (paramValues[`${this.id}-global-dither`] as boolean) ?? true
 
     // Matches the previous convention where lerpSpeed 0 is instant and 1 never arrives.
     const factor = 1 - Math.max(0, Math.min(1, lerpSpeed))
@@ -370,7 +371,7 @@ export class DmxLightingPlugin implements IPlugin {
       this.compiledSourceRevision = this.sources.revision
     }
 
-    executePatch(this.compiled, this.universes, brightness)
+    executePatch(this.compiled, this.universes, brightness, dither)
 
     // Smoothing already happened per pixel, so the transport copies straight through.
     return { protocol, lerpSpeed: 0 }

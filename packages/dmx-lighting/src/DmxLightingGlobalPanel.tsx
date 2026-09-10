@@ -217,6 +217,7 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
           <NodeContainer nodeId={`${plugin.id}-global-brightness`} />
           <NodeContainer nodeId={`${plugin.id}-global-lerpSpeed`} />
           <NodeContainer nodeId={`${plugin.id}-global-lerpMode`} />
+          <NodeContainer nodeId={`${plugin.id}-global-dither`} />
         </ControlGrid>
 
         {/* ── Sources ───────────────────────────────────────────────────── */}

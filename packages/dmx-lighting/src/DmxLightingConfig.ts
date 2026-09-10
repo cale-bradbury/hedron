@@ -33,6 +33,13 @@ export const globalOptionNodesConfig = [
   },
   {
     nodeType: 'param',
+    key: 'dither',
+    title: 'Temporal Dither',
+    valueType: 'boolean',
+    defaultValue: true,
+  },
+  {
+    nodeType: 'param',
     key: 'lerpMode',
     title: 'Lerp Mode',
     valueType: 'enum',
