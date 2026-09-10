@@ -548,6 +548,11 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
               {device.path && <div style={{ opacity: 0.6 }}>Path: {device.path}</div>}
               {device.driver && <div style={{ opacity: 0.6 }}>Driver: {device.driver}</div>}
               <div>Status: {device.status}</div>
+              {device.timing && (
+                <div style={{ opacity: 0.6, fontFamily: 'monospace', fontSize: '0.9em' }}>
+                  {device.timing}
+                </div>
+              )}
               {device.lastSent && <div style={{ opacity: 0.6 }}>Last Sent: {device.lastSent}</div>}
               {device.lastData && (
                 <details>

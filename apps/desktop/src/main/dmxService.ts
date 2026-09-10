@@ -35,7 +35,7 @@ const DMX_MAB_MS = 1
 // tells us nothing about the drain and the period has to cover it explicitly.
 const DMX_DATA_MS = 23
 // Mark time before the next BREAK. Raise this first if frames tear.
-const DMX_GUARD_MS = 4
+const DMX_GUARD_MS = 8
 const DMX_FRAME_MS = DMX_BREAK_MS + DMX_MAB_MS + DMX_DATA_MS + DMX_GUARD_MS // 30ms, ~33fps
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -65,6 +65,11 @@ class DmxService {
   private lastSentTime: Date | null = null
   private lastFrameAt = 0
   private framePeriodMs = 0
+  private periodMsMax = 0
+  private transferMs = 0
+  private transferMsMax = 0
+  private frameCount = 0
+  private frameErrors = 0
 
   // ── Public API ───────────────────────────────────────────────────────────
 
@@ -112,6 +117,7 @@ class DmxService {
           : found
             ? 'Device found, not initialised'
             : 'Device not found',
+        timing: this.readTimingWindow(),
         lastSent: this.lastSentTime
           ? `${this.lastSentTime.toLocaleTimeString()}: ${activeChannels.length} active channels`
           : undefined,
@@ -120,6 +126,20 @@ class DmxService {
           : undefined,
       },
     ]
+  }
+
+  /** Frame timing since the last read; refreshing devices starts a new sampling window. */
+  private readTimingWindow(): string {
+    const fps = this.framePeriodMs > 0 ? (1000 / this.framePeriodMs).toFixed(1) : '?'
+    const line =
+      `${fps} fps | period ${this.framePeriodMs.toFixed(1)}ms avg, ${this.periodMsMax}ms max | ` +
+      `transfer ${this.transferMs.toFixed(1)}ms avg, ${this.transferMsMax}ms max | ` +
+      `${this.frameErrors} errors in ${this.frameCount} frames`
+    this.periodMsMax = 0
+    this.transferMsMax = 0
+    this.frameCount = 0
+    this.frameErrors = 0
+    return line
   }
 
   destroy(): void {
@@ -220,6 +240,7 @@ class DmxService {
       const period = startedAt - this.lastFrameAt
       this.framePeriodMs =
         this.framePeriodMs === 0 ? period : this.framePeriodMs * 0.9 + period * 0.1
+      if (period > this.periodMsMax) this.periodMsMax = period
     }
     this.lastFrameAt = startedAt
   }
@@ -250,8 +271,17 @@ class DmxService {
       const packet = Buffer.allocUnsafe(DMX_UNIVERSE_SIZE + 1)
       packet[0] = 0x00
       this.universe.copy(packet, 1)
+
+      // How long this takes says whether the chip is flow-controlling us (≈17-22ms, so the
+      // UART paces the write) or just buffering (≈2ms, so the drain outlives the call).
+      const txStartedAt = Date.now()
       await this.outEp.transferAsync(packet)
+      const txMs = Date.now() - txStartedAt
+      this.transferMs = this.transferMs === 0 ? txMs : this.transferMs * 0.9 + txMs * 0.1
+      if (txMs > this.transferMsMax) this.transferMsMax = txMs
+      this.frameCount++
     } catch (err: unknown) {
+      this.frameErrors++
       const msg = err instanceof Error ? err.message : String(err)
       console.warn('[DMX] Frame error:', msg)
     }

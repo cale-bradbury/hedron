@@ -54,6 +54,7 @@ export interface DmxDeviceInfo {
   protocol?: string
   driver?: string
   path?: string
+  timing?: string
   lastSent?: string
   lastData?: string
 }
