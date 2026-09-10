@@ -1,6 +1,6 @@
 # DMX Pixel Pipeline — Architecture & Implementation Plan
 
-Status: phases 0-3 implemented; 4 onward proposed. Supersedes the "Next phase" section of `../DMX.md`.
+Status: phases 0-4 implemented; 5 onward proposed. Supersedes the "Next phase" section of `../DMX.md`.
 
 ## Why
 
@@ -243,7 +243,7 @@ channels.
 **Done when:** a fixed-colour-wheel fixture and a 16-bit mover can both be patched with no
 code change to the plugin.
 
-### Phase 4 — Patch UI and fixture library
+### Phase 4 — Patch UI and fixture library  ✅ done
 
 1. Fixture library: JSON profiles, shipped defaults plus a user library in the store, seeded
    with the real rig. Create, duplicate and edit in the panel.

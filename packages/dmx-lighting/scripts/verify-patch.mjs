@@ -7,6 +7,13 @@ import {
   executePatch,
   resolveTaps,
   findAddressConflicts,
+  findNextFreeAddress,
+  conflictingEntryIds,
+  entryChannelSpan,
+  sortPatchByAddress,
+  universeUsage,
+  qlcFieldName,
+  qlcToProfile,
 } from '../dist/core.js'
 
 let failures = 0
@@ -623,6 +630,130 @@ function runEncoder(pixel, encoder, colour, brightness = 1) {
   )
   check('unknown fields are patchable', slice(universes, 0, 1, 3), [255, 0, 0])
   check('field table covers them', compiled.fields.has('gobo'), true)
+}
+
+// ── Patch tools: addressing, conflicts, usage ────────────────────────────────
+{
+  const libraryProfiles = [parProfile, barProfile]
+  const entry = (id, channel, profileId = 'par', extra = {}) => ({
+    id,
+    name: id,
+    profileId,
+    modeName: profileId === 'par' ? 'rgbwi' : 'rgb',
+    addresses: channel === null ? [] : [{ universe: 0, channel }],
+    tap: { source: 's' },
+    ...extra,
+  })
+
+  check('span comes from the profile', entryChannelSpan(entry('a', 1), libraryProfiles), 5)
+  check(
+    'pixel count overrides the mode',
+    entryChannelSpan(entry('a', 1, 'bar', { tap: { source: 's', count: 4 } }), libraryProfiles),
+    12,
+  )
+
+  // Three pots at 1, 6 and 20 leave a gap at 11 big enough for a fourth.
+  const patch = [entry('a', 1), entry('b', 6), entry('c', 20)]
+  check('next free address finds the gap', findNextFreeAddress(patch, libraryProfiles, 0, 5), 11)
+  check('a bar needs a bigger gap', findNextFreeAddress(patch, libraryProfiles, 0, 114), 25)
+  check('an empty universe starts at 1', findNextFreeAddress(patch, libraryProfiles, 3, 5), 1)
+  check(
+    'placing an entry ignores where it already sits',
+    findNextFreeAddress(patch, libraryProfiles, 0, 5, 'a'),
+    1,
+  )
+  check(
+    'nothing fits when the span is too big',
+    findNextFreeAddress(patch, libraryProfiles, 0, 513),
+    null,
+  )
+
+  // Overlapping entries are reported by id so the table can flag both rows.
+  const overlapping = [entry('a', 1), entry('b', 3)]
+  check(
+    'both sides of an overlap are flagged',
+    [...conflictingEntryIds(overlapping, libraryProfiles)].sort(),
+    ['a', 'b'],
+  )
+  check('a clean patch flags nothing', conflictingEntryIds(patch, libraryProfiles).size, 0)
+
+  // A disabled entry frees its channels for something else.
+  const withDisabled = [entry('a', 1, 'par', { enabled: false }), entry('b', 20)]
+  check(
+    'disabled entries do not hold addresses',
+    findNextFreeAddress(withDisabled, libraryProfiles, 0, 5),
+    1,
+  )
+
+  check('usage counts channels per universe', universeUsage(patch, libraryProfiles), [
+    { universe: 0, used: 15 },
+  ])
+
+  const mixed = [entry('c', 20), entry('a', null), entry('b', 6)]
+  check(
+    'sorting puts unaddressed entries last',
+    sortPatchByAddress(mixed).map((e) => e.id),
+    ['b', 'c', 'a'],
+  )
+}
+
+// ── QLC+ import: channel groups map onto our field names ─────────────────────
+{
+  const field = (name, group, colour, byte = 0) => qlcFieldName({ name, group, colour, byte })
+
+  check('colour channels follow their Colour tag', field('Red', 'Intensity', 'Red'), 'red')
+  check('a master dimmer is intensity', field('Dimmer', 'Intensity'), 'intensity')
+  check('a colour wheel is the wheel field', field('Colour Wheel', 'Colour'), 'wheel')
+  check('pan and tilt pass through', field('Pan', 'Pan'), 'pan')
+  check('shutter becomes strobe', field('Shutter', 'Shutter'), 'strobe')
+  check('zoom is picked out of Beam by name', field('Zoom', 'Beam'), 'zoom')
+  check('anything else keeps its name', field('Frost Amount', 'Maintenance'), 'frost-amount')
+
+  const definition = {
+    manufacturer: 'Generic',
+    model: 'RGBW Par',
+    type: 'Color Changer',
+    channels: [
+      { name: 'Dimmer', group: 'Intensity', byte: 0 },
+      { name: 'Red', group: 'Intensity', colour: 'Red', byte: 0 },
+      { name: 'Green', group: 'Intensity', colour: 'Green', byte: 0 },
+      { name: 'Blue', group: 'Intensity', colour: 'Blue', byte: 0 },
+      { name: 'Pan Fine', group: 'Pan', byte: 1 },
+    ],
+    modes: [{ name: '5 Channel', channels: ['Dimmer', 'Red', 'Green', 'Blue', 'Pan Fine'] }],
+  }
+
+  const profile = qlcToProfile(definition)
+  check('imported profile is named after the fixture', profile.name, 'Generic RGBW Par')
+  check('imported shape', profile.shape, 'par')
+  check('mode channels map in order', profile.modes[0].pixel.slice(0, 4), [
+    'intensity',
+    'red',
+    'green',
+    'blue',
+  ])
+  check('a fine byte becomes a 16-bit part', profile.modes[0].pixel[4], {
+    field: 'pan',
+    bits: 16,
+    part: 'fine',
+  })
+
+  // A fixture with a wheel and no RGB gets the wheel encoder, positions left to the user.
+  const wheelDefinition = {
+    manufacturer: 'Generic',
+    model: 'Wheel Par',
+    type: 'Color Changer',
+    channels: [
+      { name: 'Dimmer', group: 'Intensity', byte: 0 },
+      { name: 'Colour', group: 'Colour', byte: 0 },
+    ],
+    modes: [{ name: '2 Channel', channels: ['Dimmer', 'Colour'] }],
+  }
+  check(
+    'a wheel-only fixture gets the wheel encoder',
+    qlcToProfile(wheelDefinition).modes[0].encoder?.kind,
+    'wheel',
+  )
 }
 
 console.log(`${checks - failures}/${checks} checks passed`)

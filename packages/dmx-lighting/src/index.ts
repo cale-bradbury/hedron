@@ -32,6 +32,18 @@ export { makeEncoder, encoderFields, rgbToOklab, parseHexColor, ENCODER_KINDS } 
 export type { EncoderSpec, Encoder, WheelEntry } from './encoders'
 export { FieldTable, WELL_KNOWN_FIELDS, COLOUR_FIELDS } from './fields'
 export type { FieldName } from './fields'
+export {
+  footprints,
+  channelOwners,
+  conflictingEntryIds,
+  findNextFreeAddress,
+  entryChannelSpan,
+  universeUsage,
+  sortPatchByAddress,
+} from './patchTools'
+export type { Footprint } from './patchTools'
+export { qlcFieldName, qlcChannelToSlot, qlcToProfile, parseQlcXml } from './qlcImport'
+export type { QlcDefinition, QlcChannel, QlcMode } from './qlcImport'
 export { UniverseSet } from './UniverseSet'
 export { UniverseSender, SEND_INTERVAL_MS } from './UniverseSender'
 export { DMX_UNIVERSE_SIZE, toAddress, parseAddressList, formatAddressList } from './address'

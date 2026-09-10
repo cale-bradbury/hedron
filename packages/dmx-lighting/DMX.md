@@ -23,6 +23,17 @@ packages/
       profiles.ts             ← FixtureProfile / FixtureMode / Tap / PatchEntry
       encoders.ts             ← colour -> device fields, incl. Oklab wheel matching
       fields.ts               ← open field-name registry
+      patchTools.ts           ← footprints, conflicts, auto-addressing, usage
+      qlcImport.ts            ← QLC+ .qxf fixture definitions -> profiles
+      panel/                  ← the global panel, split by concern
+        PatchTable.tsx        ← one row per fixture, expanding to the editor
+        PatchEntryEditor.tsx  ← addresses, tap, profile and mode for one fixture
+        ProfileLibrary.tsx    ← fixture profiles and QLC+ import
+        UniverseHeatmap.tsx   ← 512 live channels, owner on hover
+        SourcePreview.tsx     ← live per-pixel swatches
+        SlotEditor.tsx        ← channel slot list and SlotRow
+        EncoderEditor.tsx     ← encoder kind, white extraction, wheel positions
+        styles.ts             ← shared panel styling
       PixelSource.ts          ← named pixel buffers + smoothing + SourceRegistry
       PatchCompiler.ts        ← compiles the patch to flat arrays, resolves taps, writes
       address.ts              ← { universe, channel } addressing + parse/format
@@ -261,6 +272,29 @@ saturation, wheel, strobe, pan, tilt, zoom, focus, gobo, prism, cto, speed), but
 profile may name anything and the compiler appends it. Fields no encoder writes resolve
 to 0 until something drives them, so a pan channel today needs an `{ absolute }` slot.
 
+## The panel
+
+**Patch** is a table, one row per fixture, sorted by address: enable toggle, name,
+addresses, channel span, pixel count, profile and a one-line tap summary. Rows that
+overlap another fixture or run past channel 512 are highlighted and flagged. Clicking a
+row opens the full editor. **Add Fixture** places the new entry at the first gap that
+fits, and **Auto** re-addresses an existing one the same way.
+
+**Universes** draws every channel of every live universe as a cell coloured by value —
+green where a fixture owns it, red where two do, grey where nothing is patched. Hover
+gives the address, the value and the owning fixture. This is the fastest way to see
+what is actually on the wire.
+
+**Fixture Library** edits profiles independently of the patch: name, shape, modes,
+encoder, and the pixel and header slots. Shipped profiles cannot be deleted, nor can any
+profile still referenced by the patch. Duplicate first to fork one that is in use.
+
+QLC+ `.qxf` definitions import from the library section. Channel groups and colour tags
+map onto our field names, and a fine byte becomes the fine half of a 16-bit pair. A
+fixture with a colour wheel and no RGB emitters gets the wheel encoder with its
+positions left blank, since QLC+ describes those as capability ranges rather than
+colours.
+
 ## Persistence and migration
 
 Stored in `paramValues` under `dmx-lighting-profiles`, `dmx-lighting-patch` and
@@ -283,6 +317,6 @@ detection, dithering and dirty tracking.
 
 ## Next phase
 
-See `docs/PIXEL_PIPELINE_PLAN.md`. Phases 0 to 3 are done. Phase 4 is the patch UI and
-fixture library — a profile library, a sortable patch table, auto-addressing, overlap
-detection and a universe heatmap.
+See `docs/PIXEL_PIPELINE_PLAN.md`. Phases 0 to 4 are done. Phase 5 is layout and spatial
+pixel mapping — fixture placement, a stage preview, texture sources, and taps that sample
+by position rather than by index.
