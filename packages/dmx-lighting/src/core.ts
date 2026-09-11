@@ -43,6 +43,17 @@ export {
 export type { Footprint } from './patchTools'
 export { qlcFieldName, qlcChannelToSlot, qlcToProfile, parseQlcXml } from './qlcImport'
 export type { QlcDefinition, QlcChannel, QlcMode } from './qlcImport'
+export {
+  pixelWorldPositions,
+  worldToUv,
+  uvToWorld,
+  placementOf,
+  DEFAULT_STAGE,
+  DEFAULT_PLACEMENT,
+} from './layout'
+export type { Placement, StageBounds } from './layout'
+export { buildRigFile, parseRigFile, RIG_FILE_VERSION } from './rigFile'
+export type { RigFile } from './rigFile'
 export { UniverseSet } from './UniverseSet'
 export { DMX_UNIVERSE_SIZE, toAddress, parseAddressList, formatAddressList } from './address'
 export type { Address } from './address'

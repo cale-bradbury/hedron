@@ -18,11 +18,22 @@ export interface PatchTableProps {
   profiles: FixtureProfile[]
   sourceIds: string[]
   onChange: (patch: PatchEntry[]) => void
+  /** Controlled from the panel so selecting on the stage opens the matching row. */
+  openId: string | null
+  onOpen: (entryId: string | null) => void
 }
 
 /** One row per patched fixture, sorted by address, expanding to the full editor. */
-export function PatchTable({ pluginId, patch, profiles, sourceIds, onChange }: PatchTableProps) {
-  const [openId, setOpenId] = React.useState<string | null>(null)
+export function PatchTable({
+  pluginId,
+  patch,
+  profiles,
+  sourceIds,
+  onChange,
+  openId,
+  onOpen,
+}: PatchTableProps) {
+  const setOpenId = onOpen
   const [sortByAddress, setSortByAddress] = React.useState(true)
 
   const conflicts = conflictingEntryIds(patch, profiles)

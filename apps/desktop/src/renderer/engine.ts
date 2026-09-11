@@ -41,6 +41,7 @@ engine.registerPlugin(dmxPlugin)
   engine,
   lighting: {
     source: dmxPlugin.source.bind(dmxPlugin),
+    sourceFromCanvas: dmxPlugin.sourceFromCanvas.bind(dmxPlugin),
     setColor: dmxPlugin.setColor.bind(dmxPlugin),
     setFixtureColor: dmxPlugin.setFixtureColor.bind(dmxPlugin),
     setFixtureMappings: dmxPlugin.setFixtureMappings.bind(dmxPlugin),

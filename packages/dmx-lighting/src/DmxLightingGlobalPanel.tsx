@@ -10,7 +10,9 @@ import { HedronEngine } from '@hedron-gl/engine'
 import { DmxLightingPlugin } from './DmxLightingPlugin'
 import { PatchTable } from './panel/PatchTable'
 import { ProfileLibrary } from './panel/ProfileLibrary'
+import { RigFileControls } from './panel/RigFileControls'
 import { SourcePreview } from './panel/SourcePreview'
+import { StageView } from './panel/StageView'
 import { UniverseHeatmap } from './panel/UniverseHeatmap'
 import { s } from './panel/styles'
 
@@ -24,6 +26,8 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0)
   const [showLibrary, setShowLibrary] = React.useState(false)
   const [showHeatmap, setShowHeatmap] = React.useState(false)
+  const [showStage, setShowStage] = React.useState(false)
+  const [openId, setOpenId] = React.useState<string | null>(null)
 
   // The patch is edited through the plugin rather than the store, so poll for changes
   // the sketch API makes (auto-patching a new fixture, for instance).
@@ -65,11 +69,43 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
           patch={patch}
           profiles={profiles}
           sourceIds={sources.map((source) => source.id)}
+          openId={openId}
+          onOpen={setOpenId}
           onChange={(next) => {
             plugin.setPatch(next)
             forceUpdate()
           }}
         />
+
+        {/* ── Stage ─────────────────────────────────────────────────────── */}
+        <h3 style={s.sectionHeader}>Stage</h3>
+        <Collapsible
+          title={showStage ? 'Hide stage view' : 'Show stage view'}
+          isOpen={showStage}
+          onToggle={() => setShowStage((v) => !v)}
+        >
+          {showStage && (
+            <>
+              <ControlGrid>
+                <NodeContainer nodeId={`${plugin.id}-global-stageWidth`} />
+                <NodeContainer nodeId={`${plugin.id}-global-stageDepth`} />
+              </ControlGrid>
+              <StageView
+                plugin={plugin}
+                patch={patch}
+                selectedId={openId}
+                onSelect={setOpenId}
+                onChange={(entryId, changes) => {
+                  plugin.setPatch(patch.map((e) => (e.id === entryId ? { ...e, ...changes } : e)))
+                  forceUpdate()
+                }}
+              />
+              <div style={{ marginTop: 8 }}>
+                <RigFileControls plugin={plugin} onImported={forceUpdate} />
+              </div>
+            </>
+          )}
+        </Collapsible>
 
         {/* ── Sources ───────────────────────────────────────────────────── */}
         <h3 style={s.sectionHeader}>Sources</h3>

@@ -1,6 +1,7 @@
 import { DMX_UNIVERSE_SIZE } from './address'
 import { Encoder, makeEncoder } from './encoders'
 import { FieldTable } from './fields'
+import { pixelWorldPositions, placementOf, StageBounds, DEFAULT_STAGE, worldToUv } from './layout'
 import { PIXEL_STRIDE, PixelSource, SourceRegistry } from './PixelSource'
 import { findMode, findProfile, FixtureProfile, PatchEntry, Tap } from './profiles'
 import type { ChannelSlot } from './types'
@@ -31,6 +32,8 @@ export interface CompiledTap {
   sampleSpan: number
   filter: number
   wrap: boolean
+  /** Stage UV of each pixel, precomputed from placement; empty when not spatial. */
+  spatialUv: Float32Array | null
   /** Turns a sampled colour into this mode's device fields. */
   encode: Encoder
   /** Set before each resolve; seeded from the tap and overridden by the param node. */
@@ -137,6 +140,7 @@ function buildTap(
   pixels: number,
   outPixel: number,
   encode: Encoder,
+  stage: StageBounds,
 ): CompiledTap {
   const tap = entry.tap
   const step = tap.step ?? 1
@@ -148,6 +152,18 @@ function buildTap(
     basePositions[p] = logicalIndex(p, pixels, tap) * spacing
   }
 
+  // A spatial tap ignores indices entirely: each pixel reads wherever it physically sits.
+  let spatialUv: Float32Array | null = null
+  if (tap.spatial) {
+    const world = pixelWorldPositions(placementOf(entry.placement), pixels)
+    spatialUv = new Float32Array(pixels * 2)
+    for (let p = 0; p < pixels; p++) {
+      const [u, v] = worldToUv(world[p * 3], world[p * 3 + 2], stage)
+      spatialUv[p * 2] = u
+      spatialUv[p * 2 + 1] = v
+    }
+  }
+
   return {
     entryId: entry.id,
     source,
@@ -157,6 +173,7 @@ function buildTap(
     sampleSpan: Math.abs(spacing),
     filter: filterCode(tap.filter),
     wrap: tap.wrap === true,
+    spatialUv,
     encode,
     offset: tap.offset ?? 0,
     gain: entry.gain ?? 1,
@@ -167,6 +184,7 @@ export function compilePatch(
   entries: PatchEntry[],
   profiles: FixtureProfile[],
   registry: SourceRegistry,
+  stage: StageBounds = DEFAULT_STAGE,
 ): CompiledPatch {
   const writes: PendingWrite[] = []
   const sources: PixelSource[] = []
@@ -223,7 +241,7 @@ export function compilePatch(
     const stride = mode.pixelStride ?? mode.pixel.length
     const headerLength = mode.header?.length ?? 0
 
-    const tap = buildTap(entry, source, pixels, resolvedPixels, encode)
+    const tap = buildTap(entry, source, pixels, resolvedPixels, encode, stage)
     taps.push(tap)
     resolvedPixels += pixels
 
@@ -319,7 +337,11 @@ export function resolveTaps(compiled: CompiledPatch, brightness = 1): void {
     for (let p = 0; p < tap.pixels; p++) {
       const position = tap.basePositions[p] + tap.offset
 
-      if (tap.filter === FILTER_LINEAR) {
+      if (tap.spatialUv) {
+        // Offset slides the whole rig across the source, which is how a spatial rig pans.
+        const slide = tap.offset / Math.max(1, length)
+        tap.source.sampleUv(tap.spatialUv[p * 2] + slide, tap.spatialUv[p * 2 + 1], sampled)
+      } else if (tap.filter === FILTER_LINEAR) {
         const floor = Math.floor(position)
         const frac = position - floor
         const a = sourceIndexAt(floor, length, tap.wrap) * PIXEL_STRIDE

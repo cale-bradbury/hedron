@@ -1,5 +1,6 @@
 import type { Address } from './address'
 import type { EncoderSpec } from './encoders'
+import type { Placement } from './layout'
 import type { ChannelSlot } from './types'
 
 export type FixtureShape = 'par' | 'bar' | 'strip' | 'matrix' | 'mover' | 'generic'
@@ -55,6 +56,8 @@ export interface Tap {
   /** `clip` walks the source one step per pixel; `stretch` fits the whole source. */
   fit?: TapFit
   filter?: TapFilter
+  /** Sample the source by stage position instead of by index; needs a 2D source. */
+  spatial?: boolean
 }
 
 export interface PatchEntry {
@@ -67,6 +70,8 @@ export interface PatchEntry {
   tap: Tap
   /** Per-fixture trim, seed for this entry's animatable gain param node. Defaults to 1. */
   gain?: number
+  /** Where the fixture sits on the stage; drives the stage view and spatial taps. */
+  placement?: Placement
   enabled?: boolean
 }
 

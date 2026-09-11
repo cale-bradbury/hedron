@@ -1,6 +1,6 @@
 # DMX Pixel Pipeline — Architecture & Implementation Plan
 
-Status: phases 0-4 implemented; 5 onward proposed. Supersedes the "Next phase" section of `../DMX.md`.
+Status: phases 0-5 implemented; 6 proposed. Supersedes the "Next phase" section of `../DMX.md`.
 
 ## Why
 
@@ -260,7 +260,7 @@ code change to the plugin.
 **Done when:** patching a new physical light is done entirely in the UI, with conflicts
 caught before they reach the wire.
 
-### Phase 5 — Layout and spatial pixel mapping
+### Phase 5 — Layout and spatial pixel mapping  ✅ done
 
 1. `placement` on patch entries: position, rotation, size, pixel pitch.
 2. Stage preview panel: top-down and elevation views, live colours, drag to position, click

@@ -2,7 +2,8 @@ import { HedronEngine, IPlugin } from '@hedron-gl/engine'
 import { dmxIcon } from '@hedron-gl/ui-core'
 import { globalOptionNodesConfig } from './DmxLightingConfig'
 import { toAddress } from './address'
-import { PixelSource, SourceRegistry } from './PixelSource'
+import { PixelSource, PIXEL_STRIDE, SourceRegistry } from './PixelSource'
+import { DEFAULT_STAGE, StageBounds } from './layout'
 import {
   compilePatch,
   CompiledPatch,
@@ -61,7 +62,13 @@ declare global {
       engine: HedronEngine
       lighting: {
         /** Creates or resizes a named pixel buffer and returns it for direct writes. */
-        source: (id: string, pixelCount?: number) => PixelSource
+        source: (id: string, width?: number, height?: number) => PixelSource
+        /** Samples a canvas into a 2D source for spatial taps. */
+        sourceFromCanvas: (
+          id: string,
+          canvas: HTMLCanvasElement,
+          options?: { width?: number; height?: number },
+        ) => PixelSource
         /** Convenience for a single-pixel source. */
         setColor: (
           id: string,
@@ -129,6 +136,8 @@ export class DmxLightingPlugin implements IPlugin {
   private patchRevision = 0
   private compiledPatchRevision = -1
   private compiledSourceRevision = -1
+  private stage: StageBounds = { ...DEFAULT_STAGE }
+  private scratchCanvas: HTMLCanvasElement | null = null
   private lastProfilesRaw = ''
   private lastPatchRaw = ''
 
@@ -159,9 +168,44 @@ export class DmxLightingPlugin implements IPlugin {
 
   // ── Sketch API ────────────────────────────────────────────────────────────
 
-  /** Creates or resizes a named pixel buffer. Sketches write into `.target`. */
-  public source(id: string, pixelCount?: number): PixelSource {
-    return this.sources.ensure(id, pixelCount)
+  /**
+   * Creates or resizes a named pixel buffer. Sketches write into `.target`, or use
+   * `.set()`. Pass a height to make it a 2D source that spatial taps can sample.
+   */
+  public source(id: string, width?: number, height = 1): PixelSource {
+    return this.sources.ensure(id, width, height)
+  }
+
+  /**
+   * Samples any canvas into a 2D source, downscaled to width × height. Call it from a
+   * sketch so the readback cost sits on the render loop rather than the DMX tick — it
+   * forces a GPU sync, so keep the size small and do not call it more than once a frame.
+   */
+  public sourceFromCanvas(
+    id: string,
+    canvas: HTMLCanvasElement,
+    options: { width?: number; height?: number } = {},
+  ): PixelSource {
+    const width = Math.max(1, Math.floor(options.width ?? 32))
+    const height = Math.max(1, Math.floor(options.height ?? 18))
+    const source = this.sources.ensure(id, width, height)
+
+    if (!this.scratchCanvas) this.scratchCanvas = document.createElement('canvas')
+    const scratch = this.scratchCanvas
+    if (scratch.width !== width || scratch.height !== height) {
+      scratch.width = width
+      scratch.height = height
+    }
+
+    const context = scratch.getContext('2d', { willReadFrequently: true })
+    if (!context) return source
+    try {
+      context.drawImage(canvas, 0, 0, width, height)
+      source.setFromRgba(context.getImageData(0, 0, width, height).data)
+    } catch (error) {
+      console.warn('[DMX] Could not sample canvas:', error)
+    }
+    return source
   }
 
   public setColor(id: string, r: number, g: number, b: number, w = 0, intensity = 255): void {
@@ -200,6 +244,42 @@ export class DmxLightingPlugin implements IPlugin {
 
   public getSources(): PixelSource[] {
     return this.sources.list()
+  }
+
+  public getStage(): StageBounds {
+    return this.stage
+  }
+
+  /**
+   * Average colour a patch entry is currently being fed, for the stage view. Reads the
+   * source rather than the encoded fields, so it works whatever encoder the mode uses.
+   */
+  public getEntryPreviewColor(entryId: string): [number, number, number] {
+    const tap = this.compiled?.taps.find((t) => t.entryId === entryId)
+    if (!tap || tap.pixels === 0) return [0, 0, 0]
+
+    const data = tap.source.current
+    const last = tap.source.pixelCount - 1
+    let r = 0
+    let g = 0
+    let b = 0
+
+    for (let p = 0; p < tap.pixels; p++) {
+      let index: number
+      if (tap.spatialUv) {
+        const x = Math.round(tap.spatialUv[p * 2] * (tap.source.width - 1))
+        const y = Math.round(tap.spatialUv[p * 2 + 1] * (tap.source.height - 1))
+        index = y * tap.source.width + x
+      } else {
+        index = Math.floor(tap.basePositions[p] + tap.offset)
+      }
+      const o = Math.min(Math.max(index, 0), last) * PIXEL_STRIDE
+      r += data[o]
+      g += data[o + 1]
+      b += data[o + 2]
+    }
+
+    return [r / tap.pixels, g / tap.pixels, b / tap.pixels]
   }
 
   public getProfiles(): FixtureProfile[] {
@@ -435,6 +515,15 @@ export class DmxLightingPlugin implements IPlugin {
     const lerpMode = (paramValues[`${this.id}-global-lerpMode`] as LerpMode) || 'linear-rgb'
     const dither = (paramValues[`${this.id}-global-dither`] as boolean) ?? true
 
+    const stageWidth =
+      (paramValues[`${this.id}-global-stageWidth`] as number) ?? DEFAULT_STAGE.width
+    const stageDepth =
+      (paramValues[`${this.id}-global-stageDepth`] as number) ?? DEFAULT_STAGE.depth
+    if (stageWidth !== this.stage.width || stageDepth !== this.stage.depth) {
+      this.stage = { width: stageWidth, depth: stageDepth }
+      this.patchRevision++
+    }
+
     // Matches the previous convention where lerpSpeed 0 is instant and 1 never arrives.
     const factor = 1 - Math.max(0, Math.min(1, lerpSpeed))
     this.sources.smoothAll(factor, lerpMode)
@@ -444,7 +533,7 @@ export class DmxLightingPlugin implements IPlugin {
       this.compiledPatchRevision !== this.patchRevision ||
       this.compiledSourceRevision !== this.sources.revision
     ) {
-      this.compiled = compilePatch(this.patch, this.profiles, this.sources)
+      this.compiled = compilePatch(this.patch, this.profiles, this.sources, this.stage)
       this.compiledPatchRevision = this.patchRevision
       this.compiledSourceRevision = this.sources.revision
     }

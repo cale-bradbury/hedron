@@ -25,43 +25,58 @@ export const FIELD_OFFSET: Record<ChannelType, number> = {
  */
 export class PixelSource {
   public readonly id: string
-  private count: number
+  private cols: number
+  private rows: number
   /** Values written by the sketch; the buffer to fill directly for bulk writes. */
   public target: Float32Array
   /** Values after temporal smoothing — what the compositor samples. */
   public current: Float32Array
 
-  constructor(id: string, pixelCount: number) {
+  constructor(id: string, width: number, height = 1) {
     this.id = id
-    this.count = Math.max(1, Math.floor(pixelCount))
-    this.target = new Float32Array(this.count * PIXEL_STRIDE)
-    this.current = new Float32Array(this.count * PIXEL_STRIDE)
+    this.cols = Math.max(1, Math.floor(width))
+    this.rows = Math.max(1, Math.floor(height))
+    this.target = new Float32Array(this.pixelCount * PIXEL_STRIDE)
+    this.current = new Float32Array(this.pixelCount * PIXEL_STRIDE)
   }
 
+  /** Pixels in the buffer; width × height, and a 1D source is simply height 1. */
   public get pixelCount(): number {
-    return this.count
+    return this.cols * this.rows
+  }
+
+  public get width(): number {
+    return this.cols
+  }
+
+  public get height(): number {
+    return this.rows
   }
 
   /** Grows or shrinks the buffers, preserving the pixels that still fit. */
-  public resize(pixelCount: number): boolean {
-    const next = Math.max(1, Math.floor(pixelCount))
-    if (next === this.count) return false
+  public resize(width: number, height = 1): boolean {
+    const cols = Math.max(1, Math.floor(width))
+    const rows = Math.max(1, Math.floor(height))
+    if (cols === this.cols && rows === this.rows) return false
 
+    const before = this.pixelCount
+    const next = cols * rows
     const target = new Float32Array(next * PIXEL_STRIDE)
     const current = new Float32Array(next * PIXEL_STRIDE)
-    const keep = Math.min(next, this.count) * PIXEL_STRIDE
+    const keep = Math.min(next, before) * PIXEL_STRIDE
     target.set(this.target.subarray(0, keep))
     current.set(this.current.subarray(0, keep))
 
     this.target = target
     this.current = current
-    this.count = next
+    this.cols = cols
+    this.rows = rows
     return true
   }
 
   /** Writes one pixel; white defaults to 0 and intensity to full so RGB-only sketches light up. */
   public set(index: number, r: number, g: number, b: number, w = 0, intensity = 255): void {
-    if (index < 0 || index >= this.count) return
+    if (index < 0 || index >= this.pixelCount) return
     const o = index * PIXEL_STRIDE
     this.target[o] = r
     this.target[o + 1] = g
@@ -70,9 +85,23 @@ export class PixelSource {
     this.target[o + 4] = intensity
   }
 
+  /** Writes one pixel of a 2D source by column and row. */
+  public setXY(
+    x: number,
+    y: number,
+    r: number,
+    g: number,
+    b: number,
+    w = 0,
+    intensity = 255,
+  ): void {
+    if (x < 0 || x >= this.cols || y < 0 || y >= this.rows) return
+    this.set(y * this.cols + x, r, g, b, w, intensity)
+  }
+
   /** Writes only the fields present, leaving the rest of the pixel untouched. */
   public setChannels(index: number, channels: FixtureChannels): void {
-    if (index < 0 || index >= this.count) return
+    if (index < 0 || index >= this.pixelCount) return
     const o = index * PIXEL_STRIDE
     for (let f = 0; f < PIXEL_STRIDE; f++) {
       const value = channels[PIXEL_FIELDS[f]]
@@ -81,7 +110,51 @@ export class PixelSource {
   }
 
   public setAll(r: number, g: number, b: number, w = 0, intensity = 255): void {
-    for (let i = 0; i < this.count; i++) this.set(i, r, g, b, w, intensity)
+    const n = this.pixelCount
+    for (let i = 0; i < n; i++) this.set(i, r, g, b, w, intensity)
+  }
+
+  /**
+   * Copies RGBA bytes straight in, the shape ImageData uses, so a sketch can hand over a
+   * canvas readback without unpacking it first. Alpha is ignored.
+   */
+  public setFromRgba(data: ArrayLike<number>, intensity = 255): void {
+    const n = Math.min(this.pixelCount, Math.floor(data.length / 4))
+    for (let i = 0; i < n; i++) {
+      const src = i * 4
+      const dst = i * PIXEL_STRIDE
+      this.target[dst] = data[src]
+      this.target[dst + 1] = data[src + 1]
+      this.target[dst + 2] = data[src + 2]
+      this.target[dst + 3] = 0
+      this.target[dst + 4] = intensity
+    }
+  }
+
+  /**
+   * Bilinear sample of the smoothed buffer in normalised coordinates, for spatial taps.
+   * Positions outside 0-1 clamp to the edge.
+   */
+  public sampleUv(u: number, v: number, out: Float32Array): void {
+    const x = clamp01(u) * (this.cols - 1)
+    const y = clamp01(v) * (this.rows - 1)
+    const x0 = Math.floor(x)
+    const y0 = Math.floor(y)
+    const x1 = Math.min(x0 + 1, this.cols - 1)
+    const y1 = Math.min(y0 + 1, this.rows - 1)
+    const fx = x - x0
+    const fy = y - y0
+
+    const a = (y0 * this.cols + x0) * PIXEL_STRIDE
+    const b = (y0 * this.cols + x1) * PIXEL_STRIDE
+    const c = (y1 * this.cols + x0) * PIXEL_STRIDE
+    const d = (y1 * this.cols + x1) * PIXEL_STRIDE
+
+    for (let f = 0; f < PIXEL_STRIDE; f++) {
+      const top = this.current[a + f] + (this.current[b + f] - this.current[a + f]) * fx
+      const bottom = this.current[c + f] + (this.current[d + f] - this.current[c + f]) * fx
+      out[f] = top + (bottom - top) * fy
+    }
   }
 
   /** Moves `current` toward `target`; factor 1 is instant. */
@@ -104,7 +177,8 @@ export class PixelSource {
   // Hue takes the shortest arc so a red-to-magenta fade doesn't detour through green.
   private smoothHsb(factor: number): void {
     const { current, target } = this
-    for (let p = 0; p < this.count; p++) {
+    const n = this.pixelCount
+    for (let p = 0; p < n; p++) {
       const o = p * PIXEL_STRIDE
       const from = rgbToHsb(current[o], current[o + 1], current[o + 2])
       const to = rgbToHsb(target[o], target[o + 1], target[o + 2])
@@ -125,6 +199,10 @@ export class PixelSource {
       current[o + 4] += (target[o + 4] - current[o + 4]) * factor
     }
   }
+}
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v
 }
 
 function rgbToHsb(r: number, g: number, b: number): [number, number, number] {
@@ -184,16 +262,16 @@ export class SourceRegistry {
     return this.sources.get(id)
   }
 
-  /** Returns the named source, creating it or resizing it when a pixel count is given. */
-  public ensure(id: string, pixelCount?: number): PixelSource {
+  /** Returns the named source, creating it or resizing it when dimensions are given. */
+  public ensure(id: string, width?: number, height = 1): PixelSource {
     let source = this.sources.get(id)
     if (!source) {
-      source = new PixelSource(id, pixelCount ?? 1)
+      source = new PixelSource(id, width ?? 1, height)
       this.sources.set(id, source)
       this.revision++
       return source
     }
-    if (pixelCount !== undefined && source.resize(pixelCount)) this.revision++
+    if (width !== undefined && source.resize(width, height)) this.revision++
     return source
   }
 

@@ -1,6 +1,7 @@
 import React from 'react'
 import { Button, ControlGrid, NodeContainer } from '@hedron-gl/ui-core'
 import { s } from './styles'
+import { PlacementEditor } from './PlacementEditor'
 import { formatAddressList, parseAddressList } from '@/address'
 import {
   FixtureProfile,
@@ -288,6 +289,8 @@ export function PatchEntryEditor({
           <NodeContainer nodeId={tapGainNodeId(pluginId, entry.id)} />
         </ControlGrid>
       </div>
+
+      <PlacementEditor entry={entry} onChange={onChange} />
 
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
         <Button type="danger" size="slim" iconName="delete" onClick={onRemove}>

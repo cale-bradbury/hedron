@@ -24,12 +24,17 @@ packages/
       encoders.ts             ← colour -> device fields, incl. Oklab wheel matching
       fields.ts               ← open field-name registry
       patchTools.ts           ← footprints, conflicts, auto-addressing, usage
+      layout.ts               ← placement, pixel world positions, stage mapping
+      rigFile.ts              ← export/import the whole rig as JSON
       qlcImport.ts            ← QLC+ .qxf fixture definitions -> profiles
       panel/                  ← the global panel, split by concern
         PatchTable.tsx        ← one row per fixture, expanding to the editor
         PatchEntryEditor.tsx  ← addresses, tap, profile and mode for one fixture
         ProfileLibrary.tsx    ← fixture profiles and QLC+ import
         UniverseHeatmap.tsx   ← 512 live channels, owner on hover
+        StageView.tsx         ← top-down rig plan, live colours, drag to place
+        PlacementEditor.tsx   ← position, rotation, size, spatial toggle
+        RigFileControls.tsx   ← rig export and import
         SourcePreview.tsx     ← live per-pixel swatches
         SlotEditor.tsx        ← channel slot list and SlotRow
         EncoderEditor.tsx     ← encoder kind, white extraction, wheel positions
@@ -137,6 +142,7 @@ interface FixtureMode {
 
 interface Tap {
   source: string
+  spatial?: boolean      // read by stage position instead of by index
   offset?: number        // first source pixel; fractional allowed, animatable
   count?: number         // pixels consumed, overriding the mode
   step?: number          // source pixels per output pixel under clip
@@ -155,7 +161,14 @@ interface PatchEntry {
   addresses: Address[]   // fan-out: every address gets the same bytes
   tap: Tap
   gain?: number          // per-fixture trim, animatable
+  placement?: Placement  // position, rotation and size on the stage
   enabled?: boolean
+}
+
+interface Placement {
+  position: [number, number, number]
+  rotation: [number, number, number]   // Euler XYZ in degrees
+  size: [number, number, number]       // pixels spread along local X across size[0]
 }
 ```
 
@@ -184,11 +197,41 @@ A position identifies a point in source space, and `nearest` floors it to the pi
 containing it. Positions past the ends wrap or clamp per `wrap`, so a one-pixel source
 still broadcasts to a whole fixture.
 
+## Stage and spatial mapping
+
+Every patch entry can carry a `placement`. Pixels spread evenly along the fixture’s local
+X across `size[0]`, each sitting at the centre of its share, then rotate and translate
+into world space. The stage is a rectangle centred on the origin, sized by the Stage
+Width and Stage Depth global options, and world positions normalise onto it viewed from
+above.
+
+Turning on **sample the source by stage position** makes a tap ignore indices entirely:
+each pixel reads the 2D source at wherever it physically sits, bilinearly. That is the
+payoff — adding a fixture to the rig becomes a placement rather than a patch edit, and
+any sketch that fills a 2D source lights the whole room.
+
+Sources are 2D: `source(id, width, height)`, with a 1D strip simply being height 1. A
+sketch can fill one from a canvas:
+
+```ts
+hedron.lighting.sourceFromCanvas('stage', canvas, { width: 32, height: 18 })
+```
+
+That readback forces a GPU sync, so it lives on the sketch’s own update rather than the
+DMX tick — call it at a rate you choose, and keep the size small. The `StageCapture`
+sketch in the sketches repo does exactly this and nothing else.
+
+The **Stage** panel draws the rig from above with each fixture in its live colour. Drag a
+fixture to move it; the row for it opens in the patch table. Export Rig and Import Rig
+write the whole setup — profiles, patch and stage size — as one JSON file, so a venue
+layout travels separately from the project.
+
 ## Value pipeline
 
 ```
 source pixel -> smoothing (per pixel, linear-rgb or curved-hsb)
-             -> tap (arrangement, offset, step, wrap, fit, filter)
+             -> tap (by index: arrangement, offset, step, wrap, fit, filter
+                     or by stage position when spatial)
              -> per-entry gain, then master brightness (colour only)
              -> encoder -> named device fields
              -> slot resolution (field, scale, absolute, pad, 16-bit part)
@@ -317,6 +360,6 @@ detection, dithering and dirty tracking.
 
 ## Next phase
 
-See `docs/PIXEL_PIPELINE_PLAN.md`. Phases 0 to 4 are done. Phase 5 is layout and spatial
-pixel mapping — fixture placement, a stage preview, texture sources, and taps that sample
-by position rather than by index.
+See `docs/PIXEL_PIPELINE_PLAN.md`. Phases 0 to 5 are done. Phase 6 is multi-output
+transport — real Art-Net and sACN senders, an outputs table routing universes to devices,
+and support for more than one dongle.

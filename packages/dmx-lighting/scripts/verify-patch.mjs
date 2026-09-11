@@ -14,6 +14,11 @@ import {
   universeUsage,
   qlcFieldName,
   qlcToProfile,
+  pixelWorldPositions,
+  worldToUv,
+  uvToWorld,
+  parseRigFile,
+  buildRigFile,
 } from '../dist/core.js'
 
 let failures = 0
@@ -754,6 +759,133 @@ function runEncoder(pixel, encoder, colour, brightness = 1) {
     qlcToProfile(wheelDefinition).modes[0].encoder?.kind,
     'wheel',
   )
+}
+
+// ── Layout: where a fixture's pixels sit on the stage ────────────────────────
+{
+  const round = (values) => [...values].map((v) => Math.round(v * 1000) / 1000)
+
+  // A 4m bar at the origin, pixels at the centre of each quarter.
+  const bar = { position: [0, 0, 0], rotation: [0, 0, 0], size: [4, 0.1, 0.1] }
+  check(
+    'pixels spread along local X',
+    round(pixelWorldPositions(bar, 4)),
+    [-1.5, 0, 0, -0.5, 0, 0, 0.5, 0, 0, 1.5, 0, 0],
+  )
+
+  check('a single pixel sits on the centre', round(pixelWorldPositions(bar, 1)), [0, 0, 0])
+
+  // Yawed 90 degrees, the bar runs along Z instead of X.
+  const turned = { position: [0, 0, 0], rotation: [0, 90, 0], size: [4, 0.1, 0.1] }
+  const first = round(pixelWorldPositions(turned, 2)).slice(0, 3)
+  check('yaw swings the bar onto the Z axis', first, [0, 0, 1])
+
+  const moved = { position: [2, 1, -3], rotation: [0, 0, 0], size: [0, 0, 0] }
+  check('position offsets every pixel', round(pixelWorldPositions(moved, 1)), [2, 1, -3])
+
+  const stage = { width: 10, depth: 10 }
+  check('the origin is the middle of the stage', worldToUv(0, 0, stage), [0.5, 0.5])
+  check('a corner maps to 0,0', worldToUv(-5, -5, stage), [0, 0])
+  check('and round trips back', uvToWorld(0, 0, stage), [-5, -5])
+}
+
+// ── Spatial taps: pixels read where they physically are ──────────────────────
+{
+  // A 2x1 source: left half red, right half blue.
+  const prime = (registry) => {
+    const src = registry.ensure('stage', 2, 1)
+    src.set(0, 255, 0, 0, 0, 255)
+    src.set(1, 0, 0, 255, 0, 255)
+  }
+
+  const spatialProfile = {
+    id: 'pair',
+    name: 'Pair',
+    shape: 'bar',
+    modes: [{ name: 'rgb', pixel: ['red', 'green', 'blue'], pixelCount: 2 }],
+  }
+
+  // The bar spans the whole stage, so its two pixels land in opposite halves.
+  const spread = run(
+    [spatialProfile],
+    [
+      {
+        id: 'e1',
+        profileId: 'pair',
+        modeName: 'rgb',
+        addresses: [{ universe: 0, channel: 1 }],
+        tap: { source: 'stage', spatial: true },
+        placement: { position: [0, 0, 0], rotation: [0, 0, 0], size: [10, 0.1, 0.1] },
+      },
+    ],
+    prime,
+  )
+  check('left pixel reads the red half', slice(spread.universes, 0, 1, 3), [191, 0, 64])
+  check('right pixel reads the blue half', slice(spread.universes, 0, 4, 3), [64, 0, 191])
+
+  // Moving the same fixture to the right edge makes both pixels read blue. This is the
+  // phase's whole point: the patch did not change, only where the fixture sits.
+  const moved = run(
+    [spatialProfile],
+    [
+      {
+        id: 'e1',
+        profileId: 'pair',
+        modeName: 'rgb',
+        addresses: [{ universe: 0, channel: 1 }],
+        tap: { source: 'stage', spatial: true },
+        placement: { position: [5, 0, 0], rotation: [0, 0, 0], size: [0.2, 0.1, 0.1] },
+      },
+    ],
+    prime,
+  )
+  // Sampling is bilinear between pixel centres, so the far edge is almost pure blue
+  // rather than exactly blue on a source only two pixels wide.
+  check('moving the fixture changes what it reads', slice(moved.universes, 0, 1, 3), [1, 0, 254])
+
+  // Without the spatial flag the same entry falls back to index order.
+  const indexed = run(
+    [spatialProfile],
+    [
+      {
+        id: 'e1',
+        profileId: 'pair',
+        modeName: 'rgb',
+        addresses: [{ universe: 0, channel: 1 }],
+        tap: { source: 'stage' },
+        placement: { position: [5, 0, 0], rotation: [0, 0, 0], size: [0.2, 0.1, 0.1] },
+      },
+    ],
+    prime,
+  )
+  check(
+    'placement is ignored without the flag',
+    slice(indexed.universes, 0, 1, 6),
+    [255, 0, 0, 0, 0, 255],
+  )
+}
+
+// ── Rig files round trip ─────────────────────────────────────────────────────
+{
+  const profiles = [parProfile]
+  const patch = [
+    {
+      id: 'e1',
+      name: 'Pot',
+      profileId: 'par',
+      modeName: 'rgbwi',
+      addresses: [{ universe: 0, channel: 9 }],
+      tap: { source: 's' },
+      placement: { position: [1, 2, 3], rotation: [0, 45, 0], size: [1, 1, 1] },
+    },
+  ]
+
+  const rig = buildRigFile(profiles, patch, { width: 12, depth: 8 })
+  const parsed = parseRigFile(JSON.stringify(rig))
+  check('rig survives a round trip', parsed.patch[0].placement.rotation, [0, 45, 0])
+  check('rig keeps the stage it was measured against', parsed.stage, { width: 12, depth: 8 })
+  check('junk is rejected rather than thrown', parseRigFile('not json'), null)
+  check('a file without a patch is rejected', parseRigFile('{"profiles":[]}'), null)
 }
 
 console.log(`${checks - failures}/${checks} checks passed`)

@@ -49,4 +49,22 @@ export const globalOptionNodesConfig = [
     ],
     defaultValue: 'linear-rgb',
   },
+  {
+    nodeType: 'param',
+    key: 'stageWidth',
+    title: 'Stage Width',
+    valueType: 'number',
+    defaultValue: 10,
+    sliderMin: 1,
+    sliderMax: 50,
+  },
+  {
+    nodeType: 'param',
+    key: 'stageDepth',
+    title: 'Stage Depth',
+    valueType: 'number',
+    defaultValue: 10,
+    sliderMin: 1,
+    sliderMax: 50,
+  },
 ] as const satisfies IPlugin['globalOptionNodesConfig']
