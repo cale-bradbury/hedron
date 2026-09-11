@@ -34,6 +34,13 @@ export class UniverseSet {
     this.dirty.add(universe)
   }
 
+  /** Writes one value across a 1-based inclusive channel range, for test patterns. */
+  public fill(universe: number, from: number, to: number, value: number): void {
+    const first = Math.max(1, from)
+    const last = Math.min(DMX_UNIVERSE_SIZE, to)
+    for (let channel = first; channel <= last; channel++) this.write(universe, channel, value)
+  }
+
   /** Forces every allocated universe to be re-sent on the next flush. */
   public markAllDirty(): void {
     for (const universe of this.buffers.keys()) this.dirty.add(universe)

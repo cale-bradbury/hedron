@@ -1,7 +1,7 @@
 import { HedronEngine, IPlugin } from '@hedron-gl/engine'
 import { dmxIcon } from '@hedron-gl/ui-core'
 import { globalOptionNodesConfig } from './DmxLightingConfig'
-import { toAddress } from './address'
+import { DMX_UNIVERSE_SIZE, toAddress } from './address'
 import { PixelSource, PIXEL_STRIDE, SourceRegistry } from './PixelSource'
 import { DEFAULT_STAGE, StageBounds } from './layout'
 import {
@@ -107,6 +107,9 @@ export interface DmxLightingState {
 
 const SCHEMA_VERSION = '1'
 
+/** Output override for checking the rig: full white on channels 1–20, or every channel at 0. */
+export type DmxTestMode = 'off' | 'white' | 'zero'
+
 /** Accepts the legacy `startAddresses: number[]` shape persisted before universes existed. */
 function normalizeMappings(raw: unknown): FixtureMapping[] {
   if (!Array.isArray(raw)) return []
@@ -146,6 +149,8 @@ export class DmxLightingPlugin implements IPlugin {
   private compiledSourceRevision = -1
   private stage: StageBounds = { ...DEFAULT_STAGE }
   private scratchCanvas: HTMLCanvasElement | null = null
+  /** Transient, never persisted — reloading a project into a blackout would look like a fault. */
+  private testMode: DmxTestMode = 'off'
   private lastProfilesRaw = ''
   private lastPatchRaw = ''
   private mixes: MixSource[] = []
@@ -640,7 +645,9 @@ export class DmxLightingPlugin implements IPlugin {
     }
 
     resolveTaps(this.compiled, brightness)
-    executePatch(this.compiled, this.universes, dither)
+    // All-zero replaces the show outright; full white overlays its channels on top of it.
+    if (this.testMode !== 'zero') executePatch(this.compiled, this.universes, dither)
+    this.applyTestPattern()
 
     // Smoothing already happened per pixel, so the transport copies straight through.
     return { protocol, lerpSpeed: 0 }
@@ -682,11 +689,30 @@ export class DmxLightingPlugin implements IPlugin {
     console.log('DMX Writes per frame:', this.compiled?.writeCount ?? 0)
   }
 
-  /** Writes full-on to universe 0 channels 1–20; the send tick picks it up like any other change. */
-  testDMX() {
-    console.log('[DMX] Sending test pattern to universe 0, channels 1-20')
-    for (let channel = 1; channel <= 20; channel++) {
-      this.universes.write(0, channel, 255)
+  public getTestMode(): DmxTestMode {
+    return this.testMode
+  }
+
+  /**
+   * Latches a test pattern until switched off. A one-shot write would be overwritten by the
+   * next composite tick on every patched channel, so the pattern is re-applied each frame.
+   */
+  public setTestMode(mode: DmxTestMode): void {
+    if (mode === this.testMode) return
+    const leaving = this.testMode
+    this.testMode = mode
+    console.log(`[DMX] Test mode: ${mode}`)
+    // Drop whatever the test wrote; the next tick rewrites every patched channel before sending.
+    if (leaving !== 'off') this.universes.clear()
+  }
+
+  private applyTestPattern(): void {
+    if (this.testMode === 'zero') {
+      // Universe 0 always, since the dongle transmits it even before anything is patched.
+      const ids = new Set([0, ...this.universes.universeIds()])
+      for (const universe of ids) this.universes.fill(universe, 1, DMX_UNIVERSE_SIZE, 0)
+    } else if (this.testMode === 'white') {
+      this.universes.fill(0, 1, 20, 255)
     }
   }
 }

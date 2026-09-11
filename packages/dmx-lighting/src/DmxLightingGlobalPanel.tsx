@@ -50,6 +50,7 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
   const sources = plugin.getSources()
   const devices = plugin.getDevices()
   const universeIds = plugin.getUniverseIds()
+  const testMode = plugin.getTestMode()
   const inUse = new Set(patch.map((entry) => entry.profileId))
 
   return (
@@ -199,14 +200,39 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
             </div>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
           <Button type="neutral" size="slim" onClick={() => plugin.logDeviceInfo()}>
             Log Device Info
           </Button>
-          <Button type="neutral" size="slim" onClick={() => plugin.testDMX()}>
-            Test DMX (Full White)
+          <Button
+            type={testMode === 'white' ? 'primary' : 'neutral'}
+            size="slim"
+            onClick={() => {
+              plugin.setTestMode(testMode === 'white' ? 'off' : 'white')
+              forceUpdate()
+            }}
+          >
+            Test: Full White
+          </Button>
+          <Button
+            type={testMode === 'zero' ? 'primary' : 'neutral'}
+            size="slim"
+            onClick={() => {
+              plugin.setTestMode(testMode === 'zero' ? 'off' : 'zero')
+              forceUpdate()
+            }}
+          >
+            Test: All Zero
           </Button>
         </div>
+        {testMode !== 'off' && (
+          <div style={{ ...s.warning, marginTop: 8 }}>
+            {testMode === 'zero'
+              ? 'Every channel of every universe is held at 0'
+              : 'Channels 1–20 of universe 0 are held at full'}{' '}
+            — the show is overridden until you click the test again.
+          </div>
+        )}
       </div>
     </HedronErrorBoundary>
   )

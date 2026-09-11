@@ -951,5 +951,26 @@ function runEncoder(pixel, encoder, colour, brightness = 1) {
   check('older rigs have no mixes to apply', parseRigFile('{"profiles":[],"patch":[]}').mixes, undefined)
 }
 
+// ── Test patterns: fill holds a range at one value ───────────────────────────
+{
+  const universes = new UniverseSet()
+  universes.write(0, 5, 200)
+  universes.takeDirty()
+
+  universes.fill(0, 1, 512, 0)
+  check(
+    'fill zeroes every channel',
+    universes.snapshot(0).every((v) => v === 0),
+    true,
+  )
+  check('fill marks the universe dirty', universes.takeDirty().length, 1)
+
+  universes.fill(0, 1, 512, 0)
+  check('refilling the same value sends nothing', universes.takeDirty().length, 0)
+
+  universes.fill(0, 1, 20, 255)
+  check('a partial fill stops at its end', slice(universes, 0, 20, 2), [255, 0])
+}
+
 console.log(`${checks - failures}/${checks} checks passed`)
 if (failures > 0) process.exit(1)
