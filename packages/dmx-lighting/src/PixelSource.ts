@@ -31,6 +31,8 @@ export class PixelSource {
   public target: Float32Array
   /** Values after temporal smoothing — what the compositor samples. */
   public current: Float32Array
+  /** Written by the plugin, such as a mix output, rather than a sketch; smoothing skips it. */
+  public derived = false
 
   constructor(id: string, width: number, height = 1) {
     this.id = id
@@ -280,6 +282,8 @@ export class SourceRegistry {
   }
 
   public smoothAll(factor: number, mode: LerpMode): void {
-    for (const source of this.sources.values()) source.smooth(factor, mode)
+    for (const source of this.sources.values()) {
+      if (!source.derived) source.smooth(factor, mode)
+    }
   }
 }

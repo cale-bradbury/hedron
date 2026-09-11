@@ -19,6 +19,13 @@ import {
   tapGainNodeId,
   tapOffsetNodeId,
 } from './profiles'
+import {
+  applyMixes,
+  crossfadeWeights,
+  MixSource,
+  mixPositionNodeId,
+  normalizeMixes,
+} from './mixer'
 import { UniverseSet } from './UniverseSet'
 import { UniverseSender, FrameContext } from './UniverseSender'
 import { ArtNetSender } from './protocols/ArtNetSender'
@@ -38,6 +45,7 @@ import type {
 export type { Address } from './address'
 export { PixelSource, SourceRegistry } from './PixelSource'
 export * from './profiles'
+export type { MixSource } from './mixer'
 export type {
   ChannelSlot,
   ChannelType,
@@ -140,6 +148,8 @@ export class DmxLightingPlugin implements IPlugin {
   private scratchCanvas: HTMLCanvasElement | null = null
   private lastProfilesRaw = ''
   private lastPatchRaw = ''
+  private mixes: MixSource[] = []
+  private lastMixesRaw = ''
 
   constructor(engine: HedronEngine) {
     this.engine = engine
@@ -160,6 +170,10 @@ export class DmxLightingPlugin implements IPlugin {
 
   private get patchKey(): string {
     return `${this.id}-patch`
+  }
+
+  private get mixesKey(): string {
+    return `${this.id}-mixes`
   }
 
   private get versionKey(): string {
@@ -300,6 +314,24 @@ export class DmxLightingPlugin implements IPlugin {
     this.persistConfig()
   }
 
+  public getMixes(): MixSource[] {
+    return this.mixes
+  }
+
+  public setMixes(mixes: MixSource[]): void {
+    this.mixes = mixes
+    this.persistConfig()
+  }
+
+  /** Each deck's current share of a mix, so the panel can show which one is safe to swap. */
+  public getMixWeights(mixId: string): number[] {
+    const mix = this.mixes.find((m) => m.id === mixId)
+    if (!mix) return []
+    const paramValues = this.engine.getStore().getState().paramValues
+    const position = paramValues[mixPositionNodeId(this.id, mix.id)]
+    return crossfadeWeights(typeof position === 'number' ? position : 0, mix.inputs.length)
+  }
+
   public getAddressConflicts(): Array<{ universe: number; channel: number }> {
     return this.compiled ? findAddressConflicts(this.compiled) : []
   }
@@ -317,15 +349,19 @@ export class DmxLightingPlugin implements IPlugin {
   private persistConfig(): void {
     const profilesRaw = JSON.stringify(this.profiles)
     const patchRaw = JSON.stringify(this.patch)
+    const mixesRaw = JSON.stringify(this.mixes)
     this.lastProfilesRaw = profilesRaw
     this.lastPatchRaw = patchRaw
+    this.lastMixesRaw = mixesRaw
     this.patchRevision++
     this.refreshPatchedSources()
     this.syncTapNodes()
+    this.syncMixNodes()
 
     this.engine.getStore().setState((state) => {
       state.paramValues[this.profilesKey] = profilesRaw
       state.paramValues[this.patchKey] = patchRaw
+      state.paramValues[this.mixesKey] = mixesRaw
       state.paramValues[this.versionKey] = SCHEMA_VERSION
       return state
     })
@@ -383,6 +419,36 @@ export class DmxLightingPlugin implements IPlugin {
     for (const nodeId of stale) store.getState().deleteNode(nodeId)
   }
 
+  /** One crossfader node per mix, keyed on the mix id so MIDI mappings survive renames and reloads. */
+  private syncMixNodes(): void {
+    const wanted = new Set<string>()
+
+    for (const mix of this.mixes) {
+      const nodeId = mixPositionNodeId(this.id, mix.id)
+      wanted.add(nodeId)
+      this.engine.addNodeOnce(nodeId, null, {
+        nodeType: 'param',
+        key: `mix-${mix.id}-position`,
+        title: `${mix.source} Crossfade`,
+        valueType: 'number',
+        defaultValue: 0,
+        sliderMin: 0,
+        sliderMax: 1,
+      })
+    }
+
+    const store = this.engine.getStore()
+    const prefix = `${this.id}-mix-`
+    const stale = Object.keys(store.getState().nodes).filter(
+      (nodeId) => nodeId.startsWith(prefix) && nodeId.endsWith('-position') && !wanted.has(nodeId),
+    )
+    for (const nodeId of stale) store.getState().deleteNode(nodeId)
+
+    // Outputs of removed or renamed mixes go back to being ordinary smoothed sources.
+    const outputs = new Set(this.mixes.map((mix) => mix.source))
+    for (const source of this.sources.list()) source.derived = outputs.has(source.id)
+  }
+
   /** Picks up project loads and panel edits by watching the raw stored strings. */
   private syncConfigFromStore(paramValues: Record<string, unknown>): void {
     if (!paramValues[this.versionKey]) {
@@ -392,10 +458,18 @@ export class DmxLightingPlugin implements IPlugin {
 
     const profilesRaw = (paramValues[this.profilesKey] as string) ?? ''
     const patchRaw = (paramValues[this.patchKey] as string) ?? ''
-    if (profilesRaw === this.lastProfilesRaw && patchRaw === this.lastPatchRaw) return
+    const mixesRaw = (paramValues[this.mixesKey] as string) ?? ''
+    if (
+      profilesRaw === this.lastProfilesRaw &&
+      patchRaw === this.lastPatchRaw &&
+      mixesRaw === this.lastMixesRaw
+    ) {
+      return
+    }
 
     this.lastProfilesRaw = profilesRaw
     this.lastPatchRaw = patchRaw
+    this.lastMixesRaw = mixesRaw
 
     try {
       const profiles = profilesRaw ? (JSON.parse(profilesRaw) as FixtureProfile[]) : []
@@ -409,9 +483,16 @@ export class DmxLightingPlugin implements IPlugin {
       this.patch = []
     }
 
+    try {
+      this.mixes = mixesRaw ? normalizeMixes(JSON.parse(mixesRaw)) : []
+    } catch (_) {
+      this.mixes = []
+    }
+
     this.patchRevision++
     this.refreshPatchedSources()
     this.syncTapNodes()
+    this.syncMixNodes()
   }
 
   /**
@@ -527,6 +608,16 @@ export class DmxLightingPlugin implements IPlugin {
     // Matches the previous convention where lerpSpeed 0 is instant and 1 never arrives.
     const factor = 1 - Math.max(0, Math.min(1, lerpSpeed))
     this.sources.smoothAll(factor, lerpMode)
+
+    // Mixes read their decks' smoothed values, so they run after smoothing and before the patch.
+    applyMixes(
+      this.mixes,
+      (mix) => {
+        const position = paramValues[mixPositionNodeId(this.id, mix.id)]
+        return typeof position === 'number' ? position : 0
+      },
+      this.sources,
+    )
 
     if (
       !this.compiled ||

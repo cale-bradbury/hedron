@@ -8,6 +8,7 @@ import {
 } from '@hedron-gl/ui-core'
 import { HedronEngine } from '@hedron-gl/engine'
 import { DmxLightingPlugin } from './DmxLightingPlugin'
+import { MixList } from './panel/MixList'
 import { PatchTable } from './panel/PatchTable'
 import { ProfileLibrary } from './panel/ProfileLibrary'
 import { RigFileControls } from './panel/RigFileControls'
@@ -106,6 +107,10 @@ export const DmxLightingGlobalPanel: React.FC<DmxLightingGlobalPanelProps> = ({ 
             </>
           )}
         </Collapsible>
+
+        {/* ── Mixes ─────────────────────────────────────────────────────── */}
+        <h3 style={s.sectionHeader}>Mixes</h3>
+        <MixList plugin={plugin} onChange={forceUpdate} />
 
         {/* ── Sources ───────────────────────────────────────────────────── */}
         <h3 style={s.sectionHeader}>Sources</h3>

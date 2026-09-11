@@ -9,13 +9,18 @@ export interface RigFileControlsProps {
   onImported: () => void
 }
 
-/** Saves and loads the whole rig — profiles, patch and stage — as one JSON file. */
+/** Saves and loads the whole rig — profiles, patch, mixes and stage — as one JSON file. */
 export function RigFileControls({ plugin, onImported }: RigFileControlsProps) {
   const [message, setMessage] = React.useState<string | null>(null)
   const fileRef = React.useRef<HTMLInputElement>(null)
 
   const exportRig = () => {
-    const rig = buildRigFile(plugin.getProfiles(), plugin.getPatch(), plugin.getStage())
+    const rig = buildRigFile(
+      plugin.getProfiles(),
+      plugin.getPatch(),
+      plugin.getStage(),
+      plugin.getMixes(),
+    )
     const blob = new Blob([JSON.stringify(rig, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -50,6 +55,7 @@ export function RigFileControls({ plugin, onImported }: RigFileControlsProps) {
           // Profiles first: the patch references them, and setPatch recompiles.
           plugin.setProfiles(rig.profiles)
           plugin.setPatch(rig.patch)
+          if (rig.mixes) plugin.setMixes(rig.mixes)
           setMessage(`Loaded ${rig.patch.length} fixtures from ${file.name}`)
           onImported()
         }}

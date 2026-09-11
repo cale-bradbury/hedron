@@ -19,6 +19,10 @@ import {
   uvToWorld,
   parseRigFile,
   buildRigFile,
+  PIXEL_STRIDE,
+  applyMixes,
+  crossfadeWeights,
+  normalizeMixes,
 } from '../dist/core.js'
 
 let failures = 0
@@ -886,6 +890,65 @@ function runEncoder(pixel, encoder, colour, brightness = 1) {
   check('rig keeps the stage it was measured against', parsed.stage, { width: 12, depth: 8 })
   check('junk is rejected rather than thrown', parseRigFile('not json'), null)
   check('a file without a patch is rejected', parseRigFile('{"profiles":[]}'), null)
+}
+
+// ── Mixes crossfade between sources ──────────────────────────────────────────
+{
+  check('two decks split evenly at the midpoint', crossfadeWeights(0.5, 2), [0.5, 0.5])
+  check('three decks: 0.75 sits between B and C', crossfadeWeights(0.75, 3), [0, 0.5, 0.5])
+  check('the far end is all last deck', crossfadeWeights(1, 3), [0, 0, 1])
+  check('out-of-range positions clamp', crossfadeWeights(4, 2), [0, 1])
+  check('a single deck is always live', crossfadeWeights(0.3, 1), [1])
+
+  const registry = new SourceRegistry()
+  const a = registry.ensure('a', 2)
+  a.set(0, 200, 0, 0)
+  a.set(1, 100, 0, 0)
+  const b = registry.ensure('b', 4)
+  for (let i = 0; i < 4; i++) b.set(i, 0, 0, 40 * (i + 1))
+  registry.smoothAll(1, 'linear-rgb')
+
+  const mix = { id: 'm1', source: 'out', inputs: ['a', 'b'], pixelCount: 4 }
+  const read = (field) => (i) => Math.round(registry.get('out').current[i * PIXEL_STRIDE + field])
+  const red = read(0)
+  const blue = read(2)
+
+  applyMixes([mix], () => 0, registry)
+  check('deck A is stretched to the mix width', [0, 1, 2, 3].map(red), [200, 167, 133, 100])
+
+  applyMixes([mix], () => 1, registry)
+  check('position 1 plays deck B', [0, 1, 2, 3].map(blue), [40, 80, 120, 160])
+  check('deck A is gone at position 1', red(0), 0)
+
+  applyMixes([mix], () => 0.5, registry)
+  check('halfway blends both decks', [red(0), blue(0)], [100, 20])
+  check('the output is marked derived', registry.get('out').derived, true)
+
+  applyMixes([{ ...mix, inputs: ['a', 'missing'] }], () => 1, registry)
+  check('a deck with no source reads as black', [red(0), blue(0)], [0, 0])
+  check('a missing deck is not created', registry.get('missing'), undefined)
+
+  applyMixes([{ ...mix, inputs: ['out', 'b'] }], () => 0, registry)
+  check('a mix cannot read its own output', red(0), 0)
+
+  // A diverging target would pull a smoothed source; a derived one must hold its mixed value.
+  applyMixes([mix], () => 0, registry)
+  registry.get('out').target[0] = 0
+  registry.smoothAll(0.5, 'linear-rgb')
+  check('smoothing leaves a mix output alone', red(0), 200)
+
+  check(
+    'stored mixes are sanitised',
+    normalizeMixes([
+      { id: 'x', source: 'o', inputs: ['a', 3], pixelCount: '12' },
+      { nope: true },
+    ]),
+    [{ id: 'x', source: 'o', inputs: ['a', ''], pixelCount: 12 }],
+  )
+
+  const rig = parseRigFile(JSON.stringify(buildRigFile([], [], { width: 10, depth: 10 }, [mix])))
+  check('rig files carry mixes', rig.mixes, [mix])
+  check('older rigs have no mixes to apply', parseRigFile('{"profiles":[],"patch":[]}').mixes, undefined)
 }
 
 console.log(`${checks - failures}/${checks} checks passed`)

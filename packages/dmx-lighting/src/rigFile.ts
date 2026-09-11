@@ -1,22 +1,26 @@
 import type { FixtureProfile, PatchEntry } from './profiles'
 import type { StageBounds } from './layout'
+import { MixSource, normalizeMixes } from './mixer'
 
 export const RIG_FILE_VERSION = 1
 
-/** A portable rig: the profiles, the patch and the stage it was measured against. */
+/** A portable rig: the profiles, the patch, its mixes and the stage it was measured against. */
 export interface RigFile {
   version: number
   stage: StageBounds
   profiles: FixtureProfile[]
   patch: PatchEntry[]
+  /** Absent in rigs saved before mixes existed, so importing one leaves current mixes alone. */
+  mixes?: MixSource[]
 }
 
 export function buildRigFile(
   profiles: FixtureProfile[],
   patch: PatchEntry[],
   stage: StageBounds,
+  mixes: MixSource[] = [],
 ): RigFile {
-  return { version: RIG_FILE_VERSION, stage, profiles, patch }
+  return { version: RIG_FILE_VERSION, stage, profiles, patch, mixes }
 }
 
 /** Parses a rig file, returning null rather than throwing on anything unusable. */
@@ -40,5 +44,6 @@ export function parseRigFile(json: string): RigFile | null {
         : { width: 10, depth: 10 },
     profiles: rig.profiles,
     patch: rig.patch,
+    mixes: Array.isArray(rig.mixes) ? normalizeMixes(rig.mixes) : undefined,
   }
 }

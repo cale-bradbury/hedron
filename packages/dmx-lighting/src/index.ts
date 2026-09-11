@@ -10,6 +10,15 @@ export {
 export { compilePatch, executePatch, resolveTaps, findAddressConflicts } from './PatchCompiler'
 export type { CompiledPatch, CompiledTap } from './PatchCompiler'
 export {
+  applyMixes,
+  crossfadePair,
+  crossfadeWeights,
+  makeMixId,
+  mixPositionNodeId,
+  normalizeMixes,
+} from './mixer'
+export type { MixSource, CrossfadePair } from './mixer'
+export {
   DEFAULT_PROFILES,
   findProfile,
   findMode,
