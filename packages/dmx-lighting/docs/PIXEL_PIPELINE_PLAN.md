@@ -2,6 +2,11 @@
 
 Status: phases 0-5 implemented; 6 proposed. Supersedes the "Next phase" section of `../DMX.md`.
 
+Since phase 5 the patch entry has been split in three: a machine-wide fixture library of
+explicit channel tables, a rig of fixture instances, and mappings that route sources to
+heads. Taps live on mappings now. `../DMX.md` describes the current model; the types below
+are the historical plan.
+
 ## Why
 
 The current model (`FixtureColor` = one flat colour + `FixtureMapping[]`) was built for a

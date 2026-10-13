@@ -1,17 +1,17 @@
 import { s } from './styles'
 import { placementOf } from '@/layout'
-import { PatchEntry } from '@/profiles'
+import { FixtureInstance } from '@/fixtures'
 
 export interface PlacementEditorProps {
-  entry: PatchEntry
-  onChange: (changes: Partial<PatchEntry>) => void
+  fixture: FixtureInstance
+  onChange: (changes: Partial<FixtureInstance>) => void
 }
 
 const AXES = ['X', 'Y', 'Z']
 
 /** Position, rotation and size of one fixture, in stage units and degrees. */
-export function PlacementEditor({ entry, onChange }: PlacementEditorProps) {
-  const placement = placementOf(entry.placement)
+export function PlacementEditor({ fixture, onChange }: PlacementEditorProps) {
+  const placement = placementOf(fixture.placement)
 
   const setTriple = (field: 'position' | 'rotation' | 'size', index: number, value: number) => {
     const next: [number, number, number] = [...placement[field]]
@@ -39,23 +39,13 @@ export function PlacementEditor({ entry, onChange }: PlacementEditorProps) {
   )
 
   return (
-    <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #222' }}>
-      <div style={s.fieldLabel}>Placement</div>
+    <div style={{ paddingTop: 4 }}>
       {row('Position (x, y, z)', 'position', 0.1)}
       {row('Rotation (degrees)', 'rotation', 5)}
       {row('Size (length, height, depth)', 'size', 0.1)}
-
-      <label style={s.checkboxRow}>
-        <input
-          type="checkbox"
-          checked={entry.tap.spatial === true}
-          onChange={(e) => onChange({ tap: { ...entry.tap, spatial: e.target.checked } })}
-        />
-        <span>sample the source by stage position</span>
-      </label>
       <div style={s.hint}>
-        With this on the tap ignores indices: each pixel reads wherever it physically sits on the
-        stage. The source needs a height greater than 1 for that to mean anything.
+        Heads spread evenly along the length. Spatial mappings sample the source wherever each head
+        sits on the stage.
       </div>
     </div>
   )

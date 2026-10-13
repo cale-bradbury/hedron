@@ -1,7 +1,7 @@
 import { Button } from '@hedron-gl/ui-core'
 import { s } from './styles'
 import { ENCODER_KINDS, EncoderSpec, WheelEntry } from '@/encoders'
-import type { FixtureMode } from '@/profiles'
+import type { FixtureMode } from '@/fixtures'
 
 // ─── EncoderEditor ────────────────────────────────────────────────────────────
 

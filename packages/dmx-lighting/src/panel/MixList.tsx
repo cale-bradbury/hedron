@@ -141,7 +141,8 @@ function MixEditor({
       {mix.inputs.map((input, index) => {
         const weight = weights[index] ?? 0
         // Keep a deck's source listed even before any sketch has created it.
-        const options = input && !deckOptions.includes(input) ? [input, ...deckOptions] : deckOptions
+        const options =
+          input && !deckOptions.includes(input) ? [input, ...deckOptions] : deckOptions
         return (
           <div key={index} style={s.wheelRow}>
             <span style={{ ...s.chip, background: weight > 0 ? '#2e7a2e' : '#333' }}>
@@ -174,7 +175,9 @@ function MixEditor({
           </div>
         )
       })}
-      <div style={s.hint}>Green decks are live; a grey deck can be swapped without a visible change.</div>
+      <div style={s.hint}>
+        Green decks are live; a grey deck can be swapped without a visible change.
+      </div>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
         <Button

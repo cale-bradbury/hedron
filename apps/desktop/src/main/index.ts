@@ -1,3 +1,4 @@
+import fs from 'fs'
 import path from 'path'
 import { app, BrowserWindow, dialog, ipcMain, screen, session } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
@@ -146,6 +147,21 @@ ipcMain.on('dmx:writeUniverse', (_, universe: number, bytes: Uint8Array, lerpSpe
 
 ipcMain.handle('dmx:getDevices', async () => {
   return await dmxService.getDevices()
+})
+
+// The fixture library belongs to the machine rather than a project, so it lives in user data.
+const dmxLibraryPath = () => path.join(app.getPath('userData'), 'dmx-fixture-library.json')
+
+ipcMain.handle('dmx:loadLibrary', async () => {
+  try {
+    return await fs.promises.readFile(dmxLibraryPath(), 'utf8')
+  } catch (_) {
+    return null
+  }
+})
+
+ipcMain.handle('dmx:saveLibrary', async (_, json: string) => {
+  await fs.promises.writeFile(dmxLibraryPath(), json, 'utf8')
 })
 
 // Clean up DMX on quit

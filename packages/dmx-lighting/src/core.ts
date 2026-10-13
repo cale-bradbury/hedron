@@ -6,8 +6,18 @@ export {
   PIXEL_STRIDE,
   FIELD_OFFSET,
 } from './PixelSource'
-export { compilePatch, executePatch, resolveTaps, findAddressConflicts } from './PatchCompiler'
-export type { CompiledPatch, CompiledTap } from './PatchCompiler'
+export {
+  compileRig,
+  executeRig,
+  resolveRig,
+  mappingSourcePixels,
+  spreadSourceIndex,
+  LAYER_DEFAULT,
+  LAYER_DRIVEN,
+  LAYER_OVERRIDE,
+  LAYER_IDENTIFY,
+} from './RigCompiler'
+export type { CompiledRig, CompiledMapping } from './RigCompiler'
 export {
   applyMixes,
   crossfadePair,
@@ -18,39 +28,64 @@ export {
 } from './mixer'
 export type { MixSource, CrossfadePair } from './mixer'
 export {
-  DEFAULT_PROFILES,
-  findProfile,
+  findType,
   findMode,
-  modeChannelCount,
-  makeEntryId,
-  tapOffsetNodeId,
-  tapGainNodeId,
-} from './profiles'
+  modeHasHeads,
+  modeHeadCount,
+  channelHead,
+  channelLabel,
+  drivenFields,
+  headLabel,
+  repeatHeads,
+  mappingHeads,
+  mappingOffsetNodeId,
+  mappingGainNodeId,
+  overrideNodeId,
+  overrideAt,
+  overrideBytes,
+  mappingOffsetMax,
+  makeId,
+} from './fixtures'
 export type {
-  FixtureProfile,
+  FixtureChannel,
   FixtureMode,
+  FixtureType,
   FixtureShape,
-  PatchEntry,
-  Tap,
+  FixtureInstance,
+  Mapping,
+  MappingTarget,
+  ReduceMode,
+  ChannelOverride,
+  IdentifyTarget,
   TapArrangement,
   TapFit,
   TapFilter,
-} from './profiles'
+} from './fixtures'
+export { DEFAULT_TYPES, isShippedType, mergeShippedTypes, normalizeTypes } from './library'
 export { makeEncoder, encoderFields, rgbToOklab, parseHexColor, ENCODER_KINDS } from './encoders'
 export type { EncoderSpec, Encoder, WheelEntry } from './encoders'
 export { FieldTable, WELL_KNOWN_FIELDS, COLOUR_FIELDS } from './fields'
 export type { FieldName } from './fields'
 export {
-  footprints,
-  channelOwners,
-  conflictingEntryIds,
+  channelKey,
+  describeChannels,
   findNextFreeAddress,
-  entryChannelSpan,
+  fixtureMode,
+  fixtureSpan,
+  footprints,
+  formatAddress,
+  mappingTitle,
+  sharedWith,
+  sortFixturesByAddress,
   universeUsage,
-  sortPatchByAddress,
-} from './patchTools'
-export type { Footprint } from './patchTools'
-export { qlcFieldName, qlcChannelToSlot, qlcToProfile, parseQlcXml } from './qlcImport'
+} from './rigTools'
+export type { ChannelInfo, ChannelUse, Footprint } from './rigTools'
+export {
+  qlcFieldName,
+  qlcChannelToFixtureChannel,
+  qlcToFixtureType,
+  parseQlcXml,
+} from './qlcImport'
 export type { QlcDefinition, QlcChannel, QlcMode } from './qlcImport'
 export {
   pixelWorldPositions,
@@ -61,7 +96,7 @@ export {
   DEFAULT_PLACEMENT,
 } from './layout'
 export type { Placement, StageBounds } from './layout'
-export { buildRigFile, parseRigFile, RIG_FILE_VERSION } from './rigFile'
+export { buildRigFile, parseRigFile, normalizeOverrides, RIG_FILE_VERSION } from './rigFile'
 export type { RigFile } from './rigFile'
 export { UniverseSet } from './UniverseSet'
 export { DMX_UNIVERSE_SIZE, toAddress, parseAddressList, formatAddressList } from './address'

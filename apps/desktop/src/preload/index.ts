@@ -9,6 +9,8 @@ const electronBridge = {
   dmxWriteUniverse: (universe: number, bytes: Uint8Array, lerpSpeed: number) =>
     ipcRenderer.send('dmx:writeUniverse', universe, bytes, lerpSpeed),
   dmxGetDevices: () => ipcRenderer.invoke('dmx:getDevices'),
+  dmxLoadLibrary: (): Promise<string | null> => ipcRenderer.invoke('dmx:loadLibrary'),
+  dmxSaveLibrary: (json: string): Promise<void> => ipcRenderer.invoke('dmx:saveLibrary', json),
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

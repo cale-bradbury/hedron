@@ -146,16 +146,6 @@ export const s = {
     opacity: 0.8,
   } as React.CSSProperties,
 
-  profileNote: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-    fontSize: '0.75em',
-    opacity: 0.6,
-    marginBottom: 8,
-  } as React.CSSProperties,
-
   tableToolbar: {
     display: 'flex',
     alignItems: 'center',
@@ -164,16 +154,72 @@ export const s = {
     marginBottom: 6,
   } as React.CSSProperties,
 
-  tableRow: {
+  rigRow: {
     display: 'grid',
     gridTemplateColumns:
-      '18px minmax(70px, 1.4fr) 78px 46px 46px minmax(70px, 1.2fr) minmax(80px, 1.4fr) 62px',
+      '18px minmax(70px, 1.2fr) minmax(90px, 1.6fr) 74px 34px minmax(60px, 1fr) 52px',
     alignItems: 'center',
     gap: 6,
     padding: '4px 6px',
     fontSize: '0.78em',
     borderBottom: '1px solid #222',
     cursor: 'pointer',
+  } as React.CSSProperties,
+
+  mapRow: {
+    display: 'grid',
+    gridTemplateColumns: '18px minmax(70px, 1.1fr) minmax(80px, 1.2fr) 58px minmax(90px, 1.8fr)',
+    alignItems: 'center',
+    gap: 6,
+    padding: '4px 6px',
+    fontSize: '0.78em',
+    borderBottom: '1px solid #222',
+    cursor: 'pointer',
+  } as React.CSSProperties,
+
+  iconButton: {
+    background: 'none',
+    border: '1px solid #333',
+    borderRadius: 3,
+    color: 'inherit',
+    cursor: 'pointer',
+    fontSize: '0.9em',
+    lineHeight: 1,
+    padding: '2px 4px',
+  } as React.CSSProperties,
+
+  iconButtonActive: {
+    background: '#e8e8e8',
+    color: '#111',
+    borderColor: '#e8e8e8',
+  } as React.CSSProperties,
+
+  headChip: {
+    fontSize: '0.72em',
+    padding: '2px 6px',
+    borderRadius: 3,
+    border: '1px solid #3a3a3a',
+    background: 'none',
+    color: 'inherit',
+    cursor: 'pointer',
+  } as React.CSSProperties,
+
+  headChipOn: {
+    background: '#2e5a3a',
+    borderColor: '#3f7a4f',
+  } as React.CSSProperties,
+
+  textArea: {
+    width: '100%',
+    boxSizing: 'border-box' as const,
+    background: 'var(--bgColorDark4, #111)',
+    color: 'inherit',
+    border: '1px solid #333',
+    borderRadius: 3,
+    padding: '5px 8px',
+    fontSize: '0.82em',
+    fontFamily: 'inherit',
+    resize: 'vertical' as const,
   } as React.CSSProperties,
 
   tableRowBad: {
@@ -203,4 +249,11 @@ export const s = {
     textOverflow: 'ellipsis',
   } as React.CSSProperties,
   cellFlag: { color: '#d8a13a', fontSize: '0.92em' } as React.CSSProperties,
+  cellNote: {
+    opacity: 0.45,
+    fontSize: '0.92em',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
+  } as React.CSSProperties,
 }

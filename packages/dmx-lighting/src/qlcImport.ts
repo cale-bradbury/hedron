@@ -1,5 +1,4 @@
-import type { FixtureProfile, FixtureShape } from './profiles'
-import type { ChannelSlot } from './types'
+import type { FixtureChannel, FixtureMode, FixtureShape, FixtureType } from './fixtures'
 
 /** A channel as QLC+ describes it in a .qxf fixture definition. */
 export interface QlcChannel {
@@ -14,6 +13,8 @@ export interface QlcMode {
   name: string
   /** Channel names in address order. */
   channels: string[]
+  /** Per head, the 0-based indices into `channels` it owns. */
+  heads?: number[][]
 }
 
 export interface QlcDefinition {
@@ -84,10 +85,11 @@ export function qlcFieldName(channel: QlcChannel): string {
   }
 }
 
-export function qlcChannelToSlot(channel: QlcChannel): ChannelSlot {
+/** Turns one QLC+ channel into ours; a fine byte becomes the fine half of a 16-bit pair. */
+export function qlcChannelToFixtureChannel(channel: QlcChannel): FixtureChannel {
   const field = qlcFieldName(channel)
-  if (channel.byte === 1) return { field, bits: 16, part: 'fine' }
-  return field
+  if (channel.byte === 1) return { field, bits: 16, part: 'fine', label: channel.name }
+  return { field, label: channel.name }
 }
 
 function shapeFor(type: string): FixtureShape {
@@ -100,46 +102,72 @@ function shapeFor(type: string): FixtureShape {
   return 'generic'
 }
 
-/**
- * Turns a QLC+ definition into a profile. Every mode becomes one pixel of however many
- * channels it lists, which is right for the conventional fixtures QLC+ describes; pixel
- * bars are better patched by setting a pixel count on the entry afterwards.
- */
-export function qlcToProfile(definition: QlcDefinition): FixtureProfile {
-  const byName = new Map(definition.channels.map((c) => [c.name, c]))
+function qlcMode(mode: QlcMode, byName: Map<string, QlcChannel>): FixtureMode {
+  const headOf = new Map<number, number>()
+  ;(mode.heads ?? []).forEach((indices, head) => {
+    for (const index of indices) headOf.set(index, head)
+  })
+  const headed = headOf.size > 0
 
+  const channels: FixtureChannel[] = mode.channels.map((name, index) => {
+    const source = byName.get(name)
+    const channel: FixtureChannel = source
+      ? qlcChannelToFixtureChannel(source)
+      : { field: null, label: name }
+    const head = headOf.get(index)
+    if (head !== undefined) channel.head = head
+    // A fixture-wide master dimmer on a headed fixture is never driven, so it rests open.
+    if (
+      headed &&
+      head === undefined &&
+      (channel.field === 'intensity' || channel.field === 'dimmer')
+    ) {
+      channel.default = 255
+    }
+    return channel
+  })
+
+  // The coarse half of a 16-bit pair is only known once its fine byte has been seen.
+  const fine = new Set(channels.filter((c) => c.part === 'fine').map((c) => c.field))
+  for (const channel of channels) {
+    if (channel.part !== 'fine' && channel.field && fine.has(channel.field)) {
+      channel.bits = 16
+      channel.part = 'coarse'
+    }
+  }
+
+  // A fixture with a colour wheel and no RGB emitters wants the wheel encoder; its
+  // positions are in the QLC capabilities, which are left for the user to fill in.
+  const fields = channels.map((c) => c.field)
+  const hasRgb = fields.includes('red') && fields.includes('green')
+  const wheelOnly = !hasRgb && fields.includes('wheel')
+
+  return {
+    name: mode.name,
+    channels,
+    ...(wheelOnly
+      ? { encoder: { kind: 'wheel' as const, entries: [], carryIntensity: true } }
+      : {}),
+  }
+}
+
+/**
+ * Turns a QLC+ definition into a fixture type. QLC+ heads become ours, so a pixel bar
+ * arrives with its cells already split out for mappings to target.
+ */
+export function qlcToFixtureType(definition: QlcDefinition): FixtureType {
+  const byName = new Map(definition.channels.map((c) => [c.name, c]))
   const modes = definition.modes
     .filter((mode) => mode.channels.length > 0)
-    .map((mode) => {
-      const pixel: ChannelSlot[] = mode.channels.map((name) => {
-        const channel = byName.get(name)
-        return channel ? qlcChannelToSlot(channel) : null
-      })
-
-      // A fixture with a colour wheel and no RGB emitters wants the wheel encoder; its
-      // positions are in the QLC capabilities, which are left for the user to fill in.
-      const fields = pixel.map((slot) =>
-        typeof slot === 'string' ? slot : slot && 'field' in slot ? slot.field : '',
-      )
-      const hasRgb = fields.includes('red') && fields.includes('green')
-      const wheelOnly = !hasRgb && fields.includes('wheel')
-
-      return {
-        name: mode.name,
-        pixel,
-        pixelCount: 1,
-        ...(wheelOnly
-          ? { encoder: { kind: 'wheel' as const, entries: [], carryIntensity: true } }
-          : {}),
-      }
-    })
-
+    .map((mode) => qlcMode(mode, byName))
   const label = [definition.manufacturer, definition.model].filter(Boolean).join(' ')
+
   return {
     id: `qlc-${slugify(label)}-${Math.random().toString(36).slice(2, 6)}`,
-    name: label || 'Imported fixture',
+    name: definition.model || 'Imported fixture',
+    manufacturer: definition.manufacturer || undefined,
     shape: shapeFor(definition.type),
-    modes: modes.length > 0 ? modes : [{ name: 'default', pixel: [], pixelCount: 1 }],
+    modes: modes.length > 0 ? modes : [{ name: 'default', channels: [] }],
   }
 }
 
@@ -163,13 +191,17 @@ export function parseQlcXml(xml: string): QlcDefinition | null {
 
   const modes: QlcMode[] = [...doc.querySelectorAll('FixtureDefinition > Mode')].map((node) => ({
     name: node.getAttribute('Name') ?? 'default',
-    channels: [...node.querySelectorAll('Channel')]
+    // Direct children only: a Head also lists Channel elements, by index rather than name.
+    channels: [...node.querySelectorAll(':scope > Channel')]
       .sort(
         (a, b) =>
           parseInt(a.getAttribute('Number') ?? '0', 10) -
           parseInt(b.getAttribute('Number') ?? '0', 10),
       )
       .map((c) => c.textContent?.trim() ?? ''),
+    heads: [...node.querySelectorAll(':scope > Head')].map((head) =>
+      [...head.querySelectorAll('Channel')].map((c) => parseInt(c.textContent ?? '', 10)),
+    ),
   }))
 
   if (channels.length === 0) return null

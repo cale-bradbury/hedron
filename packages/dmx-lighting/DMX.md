@@ -1,10 +1,12 @@
-# Hedron DMX Lighting — System Overview & Next Phase Prompt
+# Hedron DMX Lighting — System Overview
 
 ## What this system is
 
 Hedron is a monorepo (pnpm + lerna) visual performance tool built on Electron + React + Three.js. It has a plugin system where packages in `packages/` expose capabilities to live-coded "sketches" in `apps/example-project/`.
 
-The DMX lighting system lets sketches drive physical DMX fixtures in real time.
+The DMX lighting system lets sketches drive physical DMX fixtures in real time. Sketches only
+ever write colours; which lights exist, where they are patched and which colours reach which
+of their heads is configuration, edited in the panel.
 
 ---
 
@@ -16,33 +18,35 @@ packages/
     docs/
       PIXEL_PIPELINE_PLAN.md  ← architecture & phased plan for strips/pixel mapping
     src/
-      DmxLightingPlugin.ts    ← plugin class, setFixtureColor() API, compositor
+      DmxLightingPlugin.ts    ← plugin class, sketch API, compositor, library persistence
       DmxLightingConfig.ts    ← global option nodes (protocol, brightness, lerp, dither)
       DmxLightingGlobalPanel.tsx
-      types.ts                ← channel/slot types
-      profiles.ts             ← FixtureProfile / FixtureMode / Tap / PatchEntry
+      fixtures.ts             ← FixtureType / FixtureMode / FixtureInstance / Mapping
+      library.ts              ← shipped fixture types, incl. the real rig's lights
       encoders.ts             ← colour -> device fields, incl. Oklab wheel matching
       fields.ts               ← open field-name registry
-      patchTools.ts           ← footprints, conflicts, auto-addressing, usage
-      layout.ts               ← placement, pixel world positions, stage mapping
+      rigTools.ts             ← footprints, sharing, auto-addressing, channel descriptions
+      layout.ts               ← placement, head world positions, stage mapping
       rigFile.ts              ← export/import the whole rig as JSON
-      qlcImport.ts            ← QLC+ .qxf fixture definitions -> profiles
+      qlcImport.ts            ← QLC+ .qxf fixture definitions -> fixture types
       panel/                  ← the global panel, split by concern
-        PatchTable.tsx        ← one row per fixture, expanding to the editor
-        PatchEntryEditor.tsx  ← addresses, tap, profile and mode for one fixture
-        ProfileLibrary.tsx    ← fixture profiles and QLC+ import
-        UniverseHeatmap.tsx   ← 512 live channels, owner on hover
-        StageView.tsx         ← top-down rig plan, live colours, drag to place
-        PlacementEditor.tsx   ← position, rotation, size, spatial toggle
+        RigTable.tsx          ← one row per light, identify and duplicate
+        FixtureEditor.tsx     ← type, mode, address and placement of one light
+        MappingList.tsx       ← one row per mapping
+        MappingEditor.tsx     ← source range, spread/reduce, transforms, targets
+        TargetEditor.tsx      ← ordered fixtures, heads picked by chip
+        MappingPreviewStrip.tsx ← the pixels a mapping reads, and what each head gets
+        UniverseHeatmap.tsx   ← the channel map: hover tooltip, highlight, overrides
+        LibraryEditor.tsx     ← fixture types, modes, channel tables, QLC+ import
+        StageView.tsx         ← top-down rig plan, live colours per head, drag to place
+        PlacementEditor.tsx   ← position, rotation, size
         RigFileControls.tsx   ← rig export and import
         SourcePreview.tsx     ← live per-pixel swatches
-        SlotEditor.tsx        ← channel slot list and SlotRow
         EncoderEditor.tsx     ← encoder kind, white extraction, wheel positions
         styles.ts             ← shared panel styling
       PixelSource.ts          ← named pixel buffers + smoothing + SourceRegistry
-      PatchCompiler.ts        ← compiles the patch to flat arrays, resolves taps, writes
+      RigCompiler.ts          ← compiles the rig to flat arrays, resolves mappings, writes
       address.ts              ← { universe, channel } addressing + parse/format
-      channelSlots.ts         ← resolveSlot(): one ChannelSlot -> one byte (legacy path)
       UniverseSet.ts          ← 512-byte buffers per universe + dirty tracking
       UniverseSender.ts       ← fixed-rate (~44fps) composite-and-flush loop
       core.ts                 ← engine-free exports, for the headless verifier
@@ -50,38 +54,33 @@ packages/
         ArtNetSender.ts       ← stub, consumes raw universe bytes
         SacnSender.ts         ← stub, consumes raw universe bytes
     scripts/
-      verify-patch.mjs        ← asserts universe bytes with no hardware (pnpm verify)
+      verify-rig.mjs          ← asserts universe bytes with no hardware (pnpm verify)
 
 apps/desktop/
   src/main/
     dmxService.ts             ← Electron main process, drives the USB device
-    index.ts                  ← IPC handlers: dmx:writeUniverse, dmx:getDevices
+    index.ts                  ← IPC: dmx:writeUniverse, dmx:getDevices, dmx:load/saveLibrary
   resources/
     dmx_worker.py             ← legacy Python worker (unused, kept for reference)
-
-apps/example-project/
-  sketches/fixture-color/
-    index.ts                  ← example sketch calling window.hedron.lighting.setFixtureColor()
 ```
 
 ---
 
 ## Data flow (end to end)
 
-Sketches write colours into named pixel sources. The patch — which fixture reads which
-pixels and sits at which addresses — is separate config, compiled once into flat arrays.
-
 ```
 Sketch (renderer)
   └─ hedron.lighting.source("strip", 38).set(i, r, g, b, w, intensity)
-       └─ writes SourceRegistry -> PixelSource.target   (no send, no patch lookup)
+       └─ writes SourceRegistry -> PixelSource.target   (no send, no rig lookup)
 
 Send tick (renderer, every 23ms ≈ 44fps — UniverseSender)
   └─ DmxLightingPlugin.composite()
-       └─ syncConfigFromStore()      profiles + patch, re-parsed only when changed
+       └─ syncConfigFromStore()      fixtures + mappings + overrides, re-parsed only when changed
        └─ SourceRegistry.smoothAll() per-pixel lerp, linear-rgb or curved-hsb
-       └─ compilePatch()             only when the patch or a source shape changed
-       └─ executePatch()             one flat loop -> UniverseSet.write()
+       └─ applyMixes()               crossfaded sources
+       └─ compileRig()               only when the rig or a source shape changed
+       └─ resolveRig()               sample every mapping, encode per head
+       └─ executeRig()               one flat loop, merged by layer -> UniverseSet.setFrame()
   └─ UniverseSet.takeDirty()
        └─ protocol === "usb":  window.electron.dmxWriteUniverse(universe, bytes, 0)
             │  ipcRenderer.send (fire and forget, no round trip)
@@ -114,238 +113,242 @@ copies straight through. Only universes whose bytes changed cross the IPC bounda
 
 ---
 
-## The model (packages/dmx-lighting/src/profiles.ts, PixelSource.ts)
+## The model (fixtures.ts)
 
-Five concepts, each persisted and edited independently:
+Three layers, each edited on its own:
+
+```
+Fixture library   the kinds of light you own: modes, each an explicit channel table
+     |               shared by every project on the machine
+     v
+Rig               the lights hung for this show: a type, a mode and a start address each
+     |               any number of the same type; fixtures may share channels
+     v
+Mappings          sketch colours -> heads: a source range, spread or reduced,
+                     sent to an ordered list of fixtures or individual heads
+```
 
 ```typescript
-// What sketches write: a named buffer of pixels, 5 floats each (r,g,b,w,intensity), 0–255.
-source("strip", 38).set(pixelIndex, r, g, b, w, intensity)
-
-type Address = { universe: number; channel: number }   // channel 1–512
-
-type ChannelSlot =
-  | FieldName                                // any field name, open registry
-  | { field: FieldName; scale?: number;      // read + per-slot scale
-      bits?: 8 | 16; part?: 'coarse' | 'fine' }   // half of a 16-bit pair
-  | { absolute: number }                     // fixed 0–255
-  | null                                     // always 0 (padding)
+interface FixtureChannel {
+  field: FieldName | null // 'red', 'pan', 'macro'… or null for an unused channel
+  head?: number // 0-based head (pod, cell); absent = fixture-wide
+  default?: number // sent whenever nothing drives the channel
+  bits?: 16
+  part?: 'coarse' | 'fine'
+  label?: string // overrides the generated name, e.g. "Shutter / strobe"
+  description?: string // value ranges from the manual
+}
 
 interface FixtureMode {
-  name: string
-  header?: ChannelSlot[]   // fixture-level channels before the pixel block
-  pixel: ChannelSlot[]     // layout of ONE pixel
-  pixelCount: number       // 1 = pot light, 38 = bar
-  pixelStride?: number     // defaults to pixel.length
-  encoder?: EncoderSpec    // colour -> fields; defaults to passthrough
+  name
+  description?
+  channels: FixtureChannel[]
+  encoder?: EncoderSpec
+}
+interface FixtureType {
+  id
+  name
+  manufacturer?
+  description?
+  shape
+  headName?
+  modes
 }
 
-interface Tap {
+interface FixtureInstance {
+  id
+  name
+  typeId
+  modeName
+  address: Address
+  placement?
+  enabled?
+}
+
+interface Mapping {
+  id
+  name?
+  enabled?
   source: string
-  spatial?: boolean      // read by stage position instead of by index
-  offset?: number        // first source pixel; fractional allowed, animatable
-  count?: number         // pixels consumed, overriding the mode
-  step?: number          // source pixels per output pixel under clip
-  wrap?: boolean         // indices wrap instead of clamping
-  arrangement?: 'forward' | 'reverse' | 'serpentine'
-  segmentSize?: number   // pixels per serpentine segment
-  fit?: 'clip' | 'stretch'
-  filter?: 'nearest' | 'linear' | 'average'
-}
-
-interface PatchEntry {
-  id: string
-  name?: string
-  profileId: string
-  modeName: string
-  addresses: Address[]   // fan-out: every address gets the same bytes
-  tap: Tap
-  gain?: number          // per-fixture trim, animatable
-  placement?: Placement  // position, rotation and size on the stage
-  enabled?: boolean
-}
-
-interface Placement {
-  position: [number, number, number]
-  rotation: [number, number, number]   // Euler XYZ in degrees
-  size: [number, number, number]       // pixels spread along local X across size[0]
+  kind: 'spread' | 'reduce' // a pixel per head, or one colour for all of them
+  reduce?: 'average' | 'brightest' | 'darkest'
+  offset?: number // first source pixel; animatable param node
+  span?: number // pixels a reduce or a stretch covers; default all
+  step?
+  wrap?
+  arrangement?
+  segmentSize?
+  fit?
+  filter?
+  spatial?
+  gain?: number // animatable param node
+  targets: Array<{ fixtureId: string; heads?: number[] }> // in spread order
 }
 ```
 
-The Tap is what decouples source index from DMX address: eight pots can each read a
-different pixel of one strip while keeping their own intensity and strobe channels.
+A mode is the manual's DMX chart written out channel by channel, so irregular layouts —
+a master dimmer before the cells, interleaved per-pod intensity — need no special shape.
+A mode whose channels carry no head is one implicit head.
 
-### Tap transforms
+**Which channels a mapping drives.** The mode's encoder declares the fields it writes
+(passthrough: red, green, blue, white, intensity). A channel whose field the encoder
+writes, on a head a mapping targets, follows the mapping. Every other channel — pan,
+shutter, macros, a fixture-wide master dimmer — sends its default, and the channel map
+can hold it at another value.
 
-| Want | Set |
-| --- | --- |
-| Scroll the strip | animate **Offset** with **Wrap** on |
-| Smooth sub-pixel scroll | the same, plus **Filter: linear** |
-| Flip the bar | **Arrangement: reverse** |
-| Flip alternate segments | **Arrangement: serpentine** + **Segment Size** |
-| Zig-zag matrix wiring | the same; segment size is the row length |
-| Fit a 16px source to a 38px bar | **Fit: stretch** (+ linear to interpolate) |
-| One pot follows a span | **Pixels: 1**, **Step: N**, **Filter: average** |
-| Every other pixel | **Step: 2** |
+**Sharing channels.** Two fixtures may sit on the same channels, for instance a single RGB
+pot piggybacking on the first pod of a bar. Every frame each universe is rebuilt from
+nothing in layers: defaults, then mapped values, then overrides, then identify. A higher
+layer wins outright; within a layer the highest value wins, which is the usual DMX rule.
+So a driven value always beats a default, and two mappings on one channel give the
+brighter of the two, which the channel map flags with a yellow border.
 
-Offset and gain are param nodes (`dmx-lighting-tap-<entryId>-offset` / `-gain`), so an
-LFO, MIDI control or timeline track drives them like any other param — scrolling needs
-no sketch code. The values stored on the tap seed those nodes and are the fallback when
-a node is missing, which is how the headless verifier drives them.
+### Shipped fixture types (library.ts)
 
-A position identifies a point in source space, and `nearest` floors it to the pixel
-containing it. Positions past the ends wrap or clamp per `wrap`, so a one-pixel source
-still broadcasts to a whole fixture.
+| Type                         | Modes                                                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Yorkville LP-LED4X           | 8ch (DIP #10 ON): intensity + colour macro per pod; 20ch (DIP #11 ON): RGBWI per pod                                       |
+| Eliminator Stealth Wash Zoom | 5ch: pan, tilt, colour macro (wheel encoder), programs, focus; 16ch: 16-bit pan/tilt, RGBW, master, shutter (rests open) … |
+| FODEXAZY ZQ06018 wall washer | 4ch RGBW; 112ch: 28 RGBW cells; 114ch: master + strobe + 28 cells                                                          |
+| Generic                      | RGB, RGBW, RGBW + intensity, 1ch dimmer                                                                                    |
+
+The LP-LED4X's 8-channel colour macro ranges are not in its manual, so that channel is not
+driven; hold it with an override.
+
+### Mapping transforms
+
+| Want                                           | Set                                                         |
+| ---------------------------------------------- | ----------------------------------------------------------- |
+| One colour on one pod                          | **reduce**, target the fixture with only that pod's chip on |
+| Average / brightest / darkest of a strip range | **reduce**, **Offset** + **Span**                           |
+| Bars in a row as one long strip                | **spread**, targets in physical order                       |
+| Scroll the strip                               | animate **Offset** with **Wrap** on                         |
+| Smooth sub-pixel scroll                        | the same, plus **Filter: linear**                           |
+| Flip the heads                                 | **Arrangement: reverse**                                    |
+| Zig-zag wiring                                 | **Arrangement: serpentine** + **Segment Size**              |
+| Fit part of a source across the heads          | **Fit: stretch** + **Offset** + **Span**                    |
+| Every other pixel                              | **Step: 2**                                                 |
+
+Offset and gain are param nodes (`dmx-lighting-map-<id>-offset` / `-gain`), so an LFO,
+MIDI control or timeline track drives them like any other param. The offset slider's max
+follows the source: a full turn of it with **Wrap** on, otherwise as far as the mapping can
+slide before the pixels it reads run off the end. It is refitted whenever the source or the
+mapping changes shape, so a max set by hand holds until then.
+
+A fixture is a target of a mapping at most once; its head chips pick which heads it gives.
 
 ## Stage and spatial mapping
 
-Every patch entry can carry a `placement`. Pixels spread evenly along the fixture’s local
-X across `size[0]`, each sitting at the centre of its share, then rotate and translate
-into world space. The stage is a rectangle centred on the origin, sized by the Stage
-Width and Stage Depth global options, and world positions normalise onto it viewed from
-above.
+Every fixture can carry a `placement`. Heads spread evenly along the fixture's local X
+across `size[0]`, then rotate and translate into world space. The stage is a rectangle
+centred on the origin, sized by the Stage Width and Stage Depth global options.
 
-Turning on **sample the source by stage position** makes a tap ignore indices entirely:
-each pixel reads the 2D source at wherever it physically sits, bilinearly. That is the
-payoff — adding a fixture to the rig becomes a placement rather than a patch edit, and
-any sketch that fills a 2D source lights the whole room.
-
-Sources are 2D: `source(id, width, height)`, with a 1D strip simply being height 1. A
-sketch can fill one from a canvas:
+A mapping with **sample by stage position** ignores indices: each head reads the 2D source
+wherever it physically sits, bilinearly. A sketch can fill one from a canvas:
 
 ```ts
 hedron.lighting.sourceFromCanvas('stage', canvas, { width: 32, height: 18 })
 ```
 
-That readback forces a GPU sync, so it lives on the sketch’s own update rather than the
-DMX tick — call it at a rate you choose, and keep the size small. The `StageCapture`
-sketch in the sketches repo does exactly this and nothing else.
-
-The **Stage** panel draws the rig from above with each fixture in its live colour. Drag a
-fixture to move it; the row for it opens in the patch table. Export Rig and Import Rig
-write the whole setup — profiles, patch and stage size — as one JSON file, so a venue
-layout travels separately from the project.
+That readback forces a GPU sync, so it lives on the sketch's own update rather than the
+DMX tick. The **Stage** panel draws the rig from above with each head in its live colour;
+drag a fixture to move it.
 
 ## Value pipeline
 
 ```
 source pixel -> smoothing (per pixel, linear-rgb or curved-hsb)
-             -> tap (by index: arrangement, offset, step, wrap, fit, filter
-                     or by stage position when spatial)
-             -> per-entry gain, then master brightness (colour only)
-             -> encoder -> named device fields
-             -> slot resolution (field, scale, absolute, pad, 16-bit part)
-             -> optional temporal dither -> byte -> universe buffer
+             -> mapping (spread: arrangement, offset, step, wrap, fit, filter, spatial
+                         reduce: average / brightest / darkest over offset + span)
+             -> per-mapping gain, then master brightness (colour only)
+             -> the head's encoder -> named device fields
+             -> channel fields, 16-bit parts, defaults for anything undriven
+             -> optional temporal dither
+             -> layer merge (default < mapped < override < identify; highest within a layer)
+             -> universe buffer
 ```
 
-Gain and brightness scale the colour before encoding and deliberately leave the source
-intensity alone, so an RGBW+intensity fixture does not dim twice. Encoders that drive a
-dimmer channel derive it from the already-scaled colour, so brightness still reaches a
-dimmer-only or colour-wheel fixture — through the channel that fixture actually has.
-
-Each frame runs `resolveTaps()` then `executePatch()`. Resolve samples every tap into
-one shared buffer of instance pixels; execute is the flat write loop reading that
-buffer. Compilation flattens the whole patch to one entry per output byte and bakes
-the arrangement into each tap, so a frame only adds the current offset. Cost is
-O(total pixels), independent of fixture count.
+Gain and brightness scale the colour before encoding and leave the source intensity alone,
+so an RGBW+intensity fixture does not dim twice. Encoders that drive a dimmer channel derive
+it from the already-scaled colour, so brightness still reaches a dimmer-only or colour-wheel
+fixture through the channel it actually has.
 
 ### Temporal dithering
 
-DMX carries 8 bits per channel, and a slow fade shows all 256 steps — worst at the
-bottom of the range, where one code is a large relative change in light. The
-**Temporal Dither** option (on by default) carries each channel’s rounding error into
-the next frame, so 100.25 goes out as 100, 100, 100, 101 and averages correctly. It
-buys sub-byte resolution in exchange for a 1-LSB flutter at the refresh rate.
-
-Exact integer values carry no error, so a settled scene still sends nothing. Turn the
-option off for fixtures that do their own smoothing or visibly flicker.
-
-This is a workaround for 8-bit channels, not a substitute for a fixture’s 16-bit mode;
-16-bit slots arrive with the encoders in phase 3.
+DMX carries 8 bits per channel, and a slow fade shows all 256 steps. The **Temporal Dither**
+option (on by default) carries each channel's rounding error into the next frame, so 100.25
+goes out as 100, 100, 100, 101 and averages correctly. Exact values carry no error, so a
+settled scene still sends nothing. Defaults and 16-bit coarse bytes are never dithered.
 
 ### Output rate
 
-The renderer composites every 23ms (~44fps). The main-process frame loop targets 25ms,
-but a frame costs ~25ms of wire time on its own (2ms BREAK + 1ms MAB + 22.6ms for 513
-bytes at 250kbaud, 8N2), so the loop is paced by the wire at roughly 38–40fps, near the
-DMX512 ceiling. `scheduleFrame` subtracts the time the frame took rather than adding a
-full delay after it — doing the latter cost about half the achievable rate and showed
-up as stepping on moving gradients.
+The renderer composites every 23ms (~44fps). The main-process frame loop targets 25ms, but
+a frame costs ~25ms of wire time on its own (2ms BREAK + 1ms MAB + 22.6ms for 513 bytes at
+250kbaud, 8N2), so the loop is paced by the wire at roughly 38–40fps.
 
 ## Encoders
 
-A mode may declare how a colour becomes its fields. `passthrough` is the default and
-writes red/green/blue/white/intensity unchanged, so every profile written before
-encoders behaves exactly as it did.
-
-| Kind | Produces | Notes |
-| --- | --- | --- |
-| `passthrough` | r, g, b, w, intensity | the pre-encoder behaviour |
-| `rgb` | r, g, b | |
-| `rgbw` | + white | `whiteExtract`: none / min / max-preserve, configurable white point |
-| `rgbwa` | + amber | amber pulled from what is left after white |
-| `cmy` | cyan, magenta, yellow | subtractive |
-| `dimmer` | dimmer, intensity | Rec. 709 luma |
-| `hsi` | hue, saturation, intensity | |
-| `wheel` | wheel, intensity | nearest palette entry in Oklab |
-
-The wheel matches on hue rather than level — the colour is normalised before comparing —
-so a dimmed blue still selects blue and the level lands on the intensity channel instead
-of dragging the match toward black. White extraction for `rgbwa` is a practical
-heuristic, not a spectral fit; it pulls the common grey onto white, then pulls amber out
-of the remainder the same way.
-
-## 16-bit channels
-
-A slot may take half of a 16-bit pair:
-
-```typescript
-pixel: [{ field: 'pan', bits: 16, part: 'coarse' }, { field: 'pan', bits: 16, part: 'fine' }]
-```
-
-The field is scaled to 0-65535 and split. The coarse byte is never dithered, since the
-fine byte already carries that resolution and dithering the two independently would
-fight.
-
-## Field names
-
-`FieldName` is an open string. `WELL_KNOWN_FIELDS` seeds the table and the slot dropdown
-(red, green, blue, white, amber, uv, cyan, magenta, yellow, intensity, dimmer, hue,
-saturation, wheel, strobe, pan, tilt, zoom, focus, gobo, prism, cto, speed), but a
-profile may name anything and the compiler appends it. Fields no encoder writes resolve
-to 0 until something drives them, so a pan channel today needs an `{ absolute }` slot.
+| Kind          | Produces                         | Notes                                          |
+| ------------- | -------------------------------- | ---------------------------------------------- |
+| `passthrough` | r, g, b, w, intensity            | the default                                    |
+| `rgb`         | r, g, b                          |                                                |
+| `rgbw`        | + white, intensity               | `whiteExtract`: none / min / max-preserve      |
+| `rgbwa`       | + amber                          | amber pulled from what is left after white     |
+| `cmy`         | cyan, magenta, yellow, intensity | subtractive                                    |
+| `dimmer`      | dimmer, intensity                | Rec. 709 luma                                  |
+| `hsi`         | hue, saturation, intensity       |                                                |
+| `wheel`       | wheel, intensity                 | nearest palette entry in Oklab, matched on hue |
 
 ## The panel
 
-**Patch** is a table, one row per fixture, sorted by address: enable toggle, name,
-addresses, channel span, pixel count, profile and a one-line tap summary. Rows that
-overlap another fixture or run past channel 512 are highlighted and flagged. Clicking a
-row opens the full editor. **Add Fixture** places the new entry at the first gap that
-fits, and **Auto** re-addresses an existing one the same way.
+**Rig** lists every light hung, sorted by address: type and mode, channel range, head count,
+and who it shares channels with. ◉ identifies a fixture — it flashes white over everything,
+ignoring brightness — and the editor's head chips identify a single pod or cell. ⧉
+duplicates a fixture at the next free address after it. **Add** places a new light at the
+first gap that fits. A fixture's editor lists the mappings driving it and any heads left
+unmapped; each mapping chip jumps to that mapping, and **Add a mapping** creates one already
+aimed at the fixture. Placement sits in a collapsed section. Removing a fixture removes it
+from every mapping's targets.
 
-**Universes** draws every channel of every live universe as a cell coloured by value —
-green where a fixture owns it, red where two do, grey where nothing is patched. Hover
-gives the address, the value and the owning fixture. This is the fastest way to see
-what is actually on the wire.
+**Mappings** route sources to heads. The editor shows the source with the pixels being read
+picked out, and a swatch per head of what it receives. Each target's name jumps back to the
+fixture in the rig.
 
-**Fixture Library** edits profiles independently of the patch: name, shape, modes,
-encoder, and the pixel and header slots. Shipped profiles cannot be deleted, nor can any
-profile still referenced by the patch. Duplicate first to fork one that is in use.
+**Channel Map** draws every channel of every live universe, coloured by value: green where a
+fixture sits, grey where nothing is patched. A purple inner glow marks a channel an override
+holds, and a yellow border one that several mappings land on. Hovering a channel draws the
+perimeter of every fixture on it — each in its own colour, so shared channels stay legible —
+and a tooltip above the cursor gives the channel and value, then per fixture its name and
+what the channel does (`Stage L - Pod 1 Blue`) over what drives it (`← strip avg`).
+Clicking it opens the detail: the manual's notes for the channel, a jump to the fixture, and
+**Hold at value**, which creates a param node (`dmx-lighting-override-<u>-<ch>`) that wins
+over any mapping and can be put on MIDI or an LFO.
 
-QLC+ `.qxf` definitions import from the library section. Channel groups and colour tags
-map onto our field names, and a fine byte becomes the fine half of a 16-bit pair. A
-fixture with a colour wheel and no RGB emitters gets the wheel encoder with its
-positions left blank, since QLC+ describes those as capability ranges rather than
-colours.
+Ticking **16-bit** holds the channel and the one after it as a coarse and fine pair driven
+by a single 0–1 param, split into 65536 steps on output
+(`dmx-lighting-overridepair-<u>-<ch>`), for pan and tilt. It is
+ticked already when the channel is the coarse half of a fixture's 16-bit pair, and clicking
+a fine half offers to hold the pair from its coarse channel instead.
 
-## Persistence and migration
+**Fixture Library** edits types: name, manufacturer, head name and description, then per
+mode a description, the encoder and the channel table (field, head, default, 16-bit part,
+label, notes). **Add heads** appends a repeated pattern such as `red, green, blue, white × 28`.
+Shipped types cannot be deleted, nor any type the rig uses.
 
-Stored in `paramValues` under `dmx-lighting-profiles`, `dmx-lighting-patch` and
-`dmx-lighting-schema-version`. When the version key is absent, any legacy
-`dmx-lighting-fixture-<id>-mappings` values are converted to a profile plus one patch
-entry each, tapping a source named after the fixture id. `setFixtureColor()` still works
-as a shim: it writes pixel 0 of that source and auto-patches from its call-site mappings
-the first time a fixture is seen.
+## Persistence
+
+- **Library**: saved as `dmx-fixture-library.json` in the app's user-data folder, via the
+  `dmx:loadLibrary` / `dmx:saveLibrary` IPC (localStorage without Electron). Only user types
+  and edited shipped types are stored, so fixes to shipped types still arrive.
+- **Project**: `paramValues` holds `dmx-lighting-fixtures`, `-mappings`, `-mixes`,
+  `-overrides`, `-types` (copies of the types the rig uses, added to the library of a
+  machine that lacks them) and `-schema-version` = `2`. Projects from before version 2 load
+  with an empty rig; their mixes are kept.
+- **Rig file**: Export Rig and Import Rig carry fixtures, mappings, mixes, overrides, stage
+  size and the types used.
+
+The sketch API is `source()`, `sourceFromCanvas()` and `setColor()`. `setFixtureColor()` is
+gone: sketches no longer create or patch fixtures.
 
 ## Verifying without hardware
 
@@ -353,13 +356,12 @@ the first time a fixture is seen.
 pnpm --filter @hedron-gl/dmx-lighting verify
 ```
 
-Builds the package and runs `scripts/verify-patch.mjs`, which asserts universe bytes for
-fan-out, a 38-pixel bar, mid-strip sampling, tap transforms, encoders, 16-bit pairs,
-header/absolute/pad slots, short-source broadcast, multi-universe routing, conflict
-detection, dithering and dirty tracking.
+Builds the package and runs `scripts/verify-rig.mjs`, which asserts universe bytes for the
+shipped fixtures, per-head targeting, reduce, shared channels and highest-wins merging,
+defaults, overrides, identify, spread transforms, encoders, QLC+ heads, spatial mappings,
+rig files, mixes and dithering.
 
 ## Next phase
 
-See `docs/PIXEL_PIPELINE_PLAN.md`. Phases 0 to 5 are done. Phase 6 is multi-output
-transport — real Art-Net and sACN senders, an outputs table routing universes to devices,
-and support for more than one dongle.
+See `docs/PIXEL_PIPELINE_PLAN.md`. Phase 6 is multi-output transport — real Art-Net and sACN
+senders, an outputs table routing universes to devices, and support for more than one dongle.

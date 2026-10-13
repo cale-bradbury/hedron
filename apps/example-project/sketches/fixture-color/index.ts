@@ -59,30 +59,17 @@ export default class FixtureColorSketch {
     this.setUniform('u_color', mixed)
     this.setUniform('u_brightness', params.brightness)
 
-    // DMX output - send to all 4 pods with RGBW+Intensity
-    if (window.hedron?.lighting?.setFixtureColor) {
-      // Convert to [0-255] for DMX
-      window.hedron.lighting.setFixtureColor(
+    // DMX output: a one-pixel source; which fixtures show it is a mapping in the DMX panel.
+    if (window.hedron?.lighting?.setColor) {
+      const byte = (v: number) =>
+        Math.max(0, Math.min(255, Math.round(v * 255 * params.brightness)))
+      window.hedron.lighting.setColor(
         params.fixtureName || 'fixture-1',
-        {
-          red: Math.max(0, Math.min(255, Math.round(mixed.x * 255 * params.brightness))),
-          green: Math.max(0, Math.min(255, Math.round(mixed.y * 255 * params.brightness))),
-          blue: Math.max(0, Math.min(255, Math.round(mixed.z * 255 * params.brightness))),
-          white: Math.max(0, Math.min(255, Math.round(params.white * 255 * params.brightness))),
-          intensity: Math.max(
-            0,
-            Math.min(255, Math.round(params.intensity * 255 * params.brightness)),
-          ),
-        },
-        {
-          mappings: [
-            {
-              // 4 pods × 5 channels each: addresses 1-5, 6-10, 11-15, 16-20
-              startAddresses: [1, 6, 11, 16],
-              channels: ['red', 'green', 'blue', 'white', 'intensity'],
-            },
-          ],
-        },
+        byte(mixed.x),
+        byte(mixed.y),
+        byte(mixed.z),
+        byte(params.white),
+        byte(params.intensity),
       )
     }
   }

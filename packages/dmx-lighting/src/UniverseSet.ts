@@ -34,6 +34,17 @@ export class UniverseSet {
     this.dirty.add(universe)
   }
 
+  /** Replaces a whole universe, marking it dirty only if any byte changed. */
+  public setFrame(universe: number, bytes: Uint8Array): void {
+    const buffer = this.get(universe)
+    for (let i = 0; i < DMX_UNIVERSE_SIZE; i++) {
+      if (buffer[i] === bytes[i]) continue
+      buffer.set(bytes.subarray(0, DMX_UNIVERSE_SIZE))
+      this.dirty.add(universe)
+      return
+    }
+  }
+
   /** Writes one value across a 1-based inclusive channel range, for test patterns. */
   public fill(universe: number, from: number, to: number, value: number): void {
     const first = Math.max(1, from)

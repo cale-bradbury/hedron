@@ -13,7 +13,7 @@ export interface FrameContext {
 
 /**
  * Drives output at a fixed rate: composite the frame, then ship only the universes
- * whose bytes changed. Replaces the old per-setFixtureColor push and its JSON throttle.
+ * whose bytes changed, so render fps and wire fps are independent.
  */
 export class UniverseSender {
   private timer: ReturnType<typeof setInterval> | null = null
