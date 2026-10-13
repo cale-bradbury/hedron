@@ -361,6 +361,15 @@ const ramp =
       [101, 0x34],
     ],
   )
+  // A change far below two decimals still moves the fine byte, so nothing rounds the level.
+  check(
+    'a 0.00002 step reaches the fine byte',
+    [0.5, 0.50002].map((level) => overrideBytes(pair, level).map((b) => b.value)),
+    [
+      [128, 0],
+      [128, 1],
+    ],
+  )
   check('the fine channel belongs to the pair', overrideAt([pair], 0, 101), pair)
   check('the channel after it does not', overrideAt([pair], 0, 102), undefined)
 

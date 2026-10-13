@@ -15,10 +15,20 @@ export const NumberInput = forwardRef<NumberInputHandle, NumberInputProps>(funct
   ref,
 ) {
   const currVal = useRef<number>(0)
+  const shownText = useRef<string>('')
   const numberInput = useRef<HTMLInputElement>(null!)
 
   const updateTextValue = useCallback((value: number) => {
-    numberInput.current.value = value.toFixed(2)
+    shownText.current = value.toFixed(2)
+    numberInput.current.value = shownText.current
+  }, [])
+
+  /** The typed value, or null when the box still shows the rounded display of the real one. */
+  const editedValue = useCallback((): number | null => {
+    const text = numberInput.current.value
+    if (text === shownText.current) return null
+    const value = parseFloat(text)
+    return isNaN(value) ? null : value
   }, [])
 
   const updateValue = useCallback(
@@ -33,17 +43,14 @@ export const NumberInput = forwardRef<NumberInputHandle, NumberInputProps>(funct
   const onInputSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault()
-      const input = numberInput.current
-
-      if (input) {
-        const value = parseFloat(input.value)
-        if (!isNaN(value)) {
-          updateValue(value)
-          onValueChange(value)
-        }
+      // Committing the display unchanged would round the real value to two decimals.
+      const value = editedValue()
+      if (value !== null) {
+        updateValue(value)
+        onValueChange(value)
       }
     },
-    [updateValue, onValueChange],
+    [updateValue, onValueChange, editedValue],
   )
 
   const onInputBlur = useCallback(() => {
@@ -53,9 +60,9 @@ export const NumberInput = forwardRef<NumberInputHandle, NumberInputProps>(funct
   const onInputKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Tab') {
-        // Submit value on Tab
-        const value = parseFloat(numberInput.current.value)
-        if (!isNaN(value)) {
+        // Submit value on Tab, but only if it was actually edited
+        const value = editedValue()
+        if (value !== null) {
           updateValue(value)
           onValueChange(value)
         }
@@ -67,7 +74,7 @@ export const NumberInput = forwardRef<NumberInputHandle, NumberInputProps>(funct
         e.preventDefault()
       }
     },
-    [onValueChange, updateValue, updateTextValue],
+    [onValueChange, updateValue, updateTextValue, editedValue],
   )
 
   const onInputFocus = useCallback(() => {

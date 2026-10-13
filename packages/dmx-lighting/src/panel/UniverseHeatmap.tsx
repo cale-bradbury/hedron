@@ -424,6 +424,7 @@ function ChannelDetail({
             <ControlGrid>
               <NodeContainer nodeId={overrideNodeId(plugin.id, held)} />
             </ControlGrid>
+            {held.bits === 16 && <PairReadout level={plugin.getOverrideLevel(held)} held={held} />}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
               <Button
                 type="neutral"
@@ -491,6 +492,20 @@ function ChannelDetail({
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * The live pair value at full precision with the bytes it becomes, since the slider's own
+ * readout rounds to two decimals and hides the fine byte's movement.
+ */
+function PairReadout({ level, held }: { level: number; held: ChannelOverride }) {
+  const [coarse, fine] = overrideBytes(held, level)
+  return (
+    <div style={{ ...s.hint, fontFamily: 'monospace', marginTop: 4 }}>
+      {level.toFixed(6)} → {coarse.value} / {fine.value} ({coarse.value * 256 + fine.value} of
+      65535)
     </div>
   )
 }

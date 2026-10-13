@@ -272,6 +272,12 @@ export class DmxLightingPlugin implements IPlugin {
     return overrideAt(this.overrides, universe, channel)
   }
 
+  /** An override's live value from its param node, which is what an LFO or MIDI moves. */
+  public getOverrideLevel(override: ChannelOverride): number {
+    const value = this.engine.getStore().getState().paramValues[overrideNodeId(this.id, override)]
+    return typeof value === 'number' ? value : override.value
+  }
+
   /**
    * Holds a channel at a value through a param node; with `bits: 16` the next channel is
    * held too, as the fine byte of one 0–1 value. Replaces any override it overlaps.
