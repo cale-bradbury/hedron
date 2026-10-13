@@ -502,10 +502,17 @@ function ChannelDetail({
  */
 function PairReadout({ level, held }: { level: number; held: ChannelOverride }) {
   const [coarse, fine] = overrideBytes(held, level)
+  // An LFO whose min, max or amplitude reach past 0–1 flat-lines here, which looks like a wall.
+  const clipped = level < 0 || level > 1
   return (
     <div style={{ ...s.hint, fontFamily: 'monospace', marginTop: 4 }}>
       {level.toFixed(6)} → {coarse.value} / {fine.value} ({coarse.value * 256 + fine.value} of
       65535)
+      {clipped && (
+        <div style={{ color: WARN, opacity: 1 }}>
+          clipped to {level < 0 ? 0 : 1}: whatever drives this param goes past 0–1
+        </div>
+      )}
     </div>
   )
 }
