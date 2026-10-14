@@ -5,6 +5,8 @@ export interface ParamBase extends NodeBase {
   key: string
   groupIndex: number
   hidden?: boolean
+  /** Node that inputs added to this param attach to instead (e.g. a color's blend) */
+  inputProxyId?: string
 }
 
 export interface ConfigParamBase extends ConfigNodeBase {

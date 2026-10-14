@@ -59,6 +59,9 @@ export interface IPlugin {
    */
   onEngineInitialize?: (engine: HedronEngine) => void
 
+  /** Attach inputs to the param itself rather than its input proxy (e.g. a color's blend) */
+  ignoresInputProxy?: boolean
+
   /**
    * Optional callback called after each input for this plugin is added
    */

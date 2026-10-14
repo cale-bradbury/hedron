@@ -13,9 +13,10 @@ import {
   ControlGrid,
   useNodeOptionNodes,
   NodeContainer,
+  ParamColorBlend,
 } from '@hedron-gl/ui-core'
 import { useCallback, useMemo } from 'react'
-import { IPlugin } from '@hedron-gl/engine'
+import { IPlugin, isColorBlendDriven } from '@hedron-gl/engine'
 import c from './SelectedNode.module.css'
 import { useSelectedNode } from '@components/hooks/useSelectedNode'
 import { pluginViews, engine, engineStore } from '@renderer/engine'
@@ -31,7 +32,7 @@ export const SelectedNode = () => {
   }
 
   const optionNodes = useNodeOptionNodes(selectedNode.id)
-  const optionNodeList = Object.values(optionNodes)
+  const optionNodeList = Object.values(optionNodes).filter((node) => !node?.hidden)
 
   const selectedInputId = useAppStore((state) => state.selectedInputs[selectedNode.id])
   const setSelectedInputId = useAppStore((state) => state.setSelectedInput)
@@ -41,6 +42,8 @@ export const SelectedNode = () => {
   )
 
   const inputs = useInputsWithNode(selectedNode.id)
+
+  const isBlendDriven = useEngineStore((state) => isColorBlendDriven(state, selectedNode.id))
 
   // TODO: Fix types here, maybe we need a "@hedron-gl/plugins" package to handle this sort of thing?
   // @ts-expect-error -- needs work
@@ -125,6 +128,12 @@ export const SelectedNode = () => {
           {PluginView && <PluginView input={currentInput} engine={engine} />}
         </HedronErrorBoundary>
       </div>
+      {isBlendDriven && (
+        <div className="mb-xl">
+          <PanelSubHeader title="Color Blend" iconName="gradient" />
+          <ParamColorBlend id={selectedNode.id} />
+        </div>
+      )}
       {selectedNode.nodeType === 'param' && (
         <div>
           <PanelSubHeader

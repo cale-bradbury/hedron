@@ -5,6 +5,7 @@ import { ParamEnum } from './ParamEnum/ParamEnum'
 import { ParamFile } from './ParamFile/ParamFile'
 import { ParamVector3 } from './ParamVector3/ParamVector3'
 import { ParamColor } from './ParamColor/ParamColor'
+import { ParamColorSwatch } from './ParamColor/ParamColorSwatch'
 import { ParamString } from './ParamString/ParamString'
 import { Shot } from './Shot/Shot'
 
@@ -81,6 +82,9 @@ export const NodeContainer = ({ nodeId }: { nodeId: string }) => {
       <NodeControlMain>
         <NodeControlInfo>
           <NodeControlTitle>{node.title}</NodeControlTitle>
+          {node.nodeType === 'param' && node.valueType === 'rgb' && (
+            <ParamColorSwatch id={node.id} />
+          )}
           <NodeControlInputCount inputCount={inputCount} />
         </NodeControlInfo>
         <NodeControlInner>{getInputElement(node)}</NodeControlInner>

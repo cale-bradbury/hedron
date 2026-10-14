@@ -7,10 +7,12 @@ import {
   ConfigShotImported,
   ParamVector,
   isParamVectorValueType,
+  isParamRGB,
   ConfigCustomNodeImported,
   ParamNumberDisplayMode,
 } from '@store/types'
 import { createUniqueId } from '@utils/createUniqueId'
+import { ensureColorBlendNodes } from '@store/shared/colorBlendNodes'
 
 const keysLookup: Record<ParamVectorValueType, string[]> = {
   vector3: ['x', 'y', 'z'],
@@ -207,6 +209,11 @@ export const addNode = (
         valueType: 'number',
         defaultValue: config.defaultValue[index],
       })
+    }
+
+    // Colors nested in a color get their blend in addInput instead, to avoid endless nesting
+    if (!isParamRGB(parentId ? state.nodes[parentId] : undefined)) {
+      ensureColorBlendNodes(state, nodeId)
     }
   } else {
     let optionNodeIds: string[] = []

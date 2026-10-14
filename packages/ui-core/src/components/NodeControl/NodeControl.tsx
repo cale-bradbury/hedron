@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { forwardRef, useCallback } from 'react'
 import c from './NodeControl.module.css'
 import {
   MouseDownContext,
@@ -93,3 +93,7 @@ export const NodeControlInner = ({ children }: NodeControlInnerProps) => {
     </div>
   )
 }
+
+export const NodeControlSwatch = forwardRef<HTMLDivElement>(function NodeControlSwatch(_, ref) {
+  return <div ref={ref} className={c.swatch} />
+})

@@ -31,6 +31,7 @@ import {
   Resources,
   InputNode,
   isParamVector,
+  isParamRGB,
 } from '@store/types'
 import { getSketchesOfModuleId } from '@store/selectors/getSketchesOfModuleId'
 import { getAllSceneSketches, getSceneSketchIds } from '@store/selectors/getSceneSketches'
@@ -38,6 +39,9 @@ import { createEngineStore, EngineStore } from '@store/engineStore'
 import { getSketchParamValues } from '@store/selectors/getSketchParamValues'
 import { addNode } from '@store/shared/addNode'
 import { getParamValue } from '@store/selectors/getParamValue'
+import { getBlendedColor, sampleBlendedColors } from '@store/selectors/getBlendedColor'
+import { RGB } from '@utils/colorBlend'
+import { ensureColorBlendNodes } from '@store/shared/colorBlendNodes'
 
 export class HedronEngine {
   public rendererType: RendererType
@@ -263,6 +267,16 @@ export class HedronEngine {
     })
   }
 
+  /** The color a sketch receives for an rgb param, after blending Color A toward Color B */
+  public getBlendedColor(nodeId: string): RGB | undefined {
+    return getBlendedColor(this.store.getState(), nodeId)
+  }
+
+  /** Samples an rgb param's blend across its slider range, e.g. for drawing a gradient */
+  public sampleColorBlend(nodeId: string, count: number): RGB[] | undefined {
+    return sampleBlendedColors(this.store.getState(), nodeId, count)
+  }
+
   public getNodeOptionNode(nodeId: string, optionKey: string): ParamNode | ShotNode {
     const node = this.getNode(nodeId)
     if (!node) {
@@ -344,7 +358,7 @@ export class HedronEngine {
     })
   }
 
-  public addInput(inputType: string, targetNodeId: string): InputNode | undefined {
+  public addInput(inputType: string, requestedTargetId: string): InputNode | undefined {
     const plugin = Object.values(this.plugins).find((p) => p.inputType === inputType)
 
     if (!plugin) {
@@ -352,7 +366,18 @@ export class HedronEngine {
       return
     }
 
+    // Nested colors only get their blend nodes once something drives them
+    if (isParamRGB(this.getNode(requestedTargetId))) {
+      this.store.setState((s) => {
+        ensureColorBlendNodes(s, requestedTargetId)
+      })
+    }
+
     const state = this.store.getState()
+
+    // Params like colors hand inputs to a numeric proxy, so plugins only see plain values
+    const proxyId = (state.nodes[requestedTargetId] as ParamNode | undefined)?.inputProxyId
+    const targetNodeId = (!plugin.ignoresInputProxy && proxyId) || requestedTargetId
 
     const targetNode = state.nodes[targetNodeId] as ParamNode | ShotNode
 
@@ -378,6 +403,31 @@ export class HedronEngine {
     plugin.onNewInput?.(this, newInput, targetNode)
 
     return newInput
+  }
+
+  /** Moves an existing input onto a different target node, keeping its options and custom data */
+  public retargetInput(inputId: string, newTargetId: string) {
+    this.store.setState((state) => {
+      const input = state.nodes[inputId]
+      const newTarget = state.nodes[newTargetId]
+
+      if (input?.nodeType !== 'input' || !newTarget) {
+        console.error(`retargetInput: input "${inputId}" or target "${newTargetId}" not found`)
+        return
+      }
+
+      const oldTarget = state.nodes[input.targetNodeId]
+      if (oldTarget) {
+        oldTarget.childGroups.inputNodeIds = oldTarget.childGroups.inputNodeIds.filter(
+          (id) => id !== inputId,
+        )
+      }
+
+      input.parentIds = input.parentIds.filter((id) => id !== input.targetNodeId)
+      input.parentIds.push(newTargetId)
+      input.targetNodeId = newTargetId
+      newTarget.childGroups.inputNodeIds.push(inputId)
+    })
   }
 
   /**

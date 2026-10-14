@@ -1,4 +1,4 @@
-import { ParamValueType, ParamVector, ParamVectorValueType } from './ParamNode'
+import { ParamRGB, ParamValueType, ParamVector, ParamVectorValueType } from './ParamNode'
 import { Node } from './Node'
 import { SceneNode } from './SceneNode'
 import { SketchNode } from './SketchNode'
@@ -21,6 +21,10 @@ export const isParamVectorValueType = (
 
 export const isParamVector = (node: Node): node is ParamVector => {
   return node.nodeType === 'param' && node.valueType in paramValueTypesWithChildren
+}
+
+export const isParamRGB = (node: Node | undefined): node is ParamRGB => {
+  return node?.nodeType === 'param' && node.valueType === 'rgb'
 }
 
 export const isParamVectorComponent = (node: Node, engine: HedronEngine) => {

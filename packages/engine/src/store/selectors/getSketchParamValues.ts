@@ -1,4 +1,5 @@
 import { getParamValue } from './getParamValue'
+import { getBlendedColor } from './getBlendedColor'
 import { getSketch } from './getSceneSketches'
 import { EngineState, ParamValue } from '@store/types'
 
@@ -25,7 +26,8 @@ export const getSketchParamValues = (
 
     const { key } = node
 
-    const value = getParamValue(state, id, config)
+    const value =
+      node.valueType === 'rgb' ? getBlendedColor(state, id) : getParamValue(state, id, config)
 
     sketchParamValues[key] = value
   })

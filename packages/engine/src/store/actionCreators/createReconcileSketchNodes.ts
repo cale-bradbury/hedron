@@ -1,6 +1,7 @@
 import { findNodeWithKeyFromIdList } from '@utils/findNodeWithKeyFromIdList'
 import { addNode } from '@store/shared/addNode'
 import { deleteNode } from '@store/shared/deleteNode'
+import { ensureColorBlendNodes } from '@store/shared/colorBlendNodes'
 import { isSketchNode, Node, SetterCreator } from '@store/types'
 import { createUniqueId } from '@utils/createUniqueId'
 
@@ -41,6 +42,7 @@ export const createReconcileSketchNodes: SetterCreator<'reconcileSketchNodes'> =
             ...state.nodes[nodeId],
             ...nodeConfig,
           } as Node
+          ensureColorBlendNodes(state, nodeId)
         }
 
         // Add this nodeId to the new list.

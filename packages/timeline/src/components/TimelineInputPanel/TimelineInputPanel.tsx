@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from 'react'
-import { HedronEngine, InputNode } from '@hedron-gl/engine'
+import { HedronEngine, InputNode, ParamNode } from '@hedron-gl/engine'
 import {
   useNodeOptionNodes,
   useParamValue,
@@ -59,6 +59,8 @@ export const TimelineInputPanel = ({ input, engine }: TimelineInputPanelProps) =
   const durationS = useParamValue<number>(durationNode?.id, 0)
 
   const zoomPxPerSecondNode = trackOptionNodes['zoomPxPerSecond']!
+  // Only tracks on a color have this toggle
+  const actAsBlendNode = (trackOptionNodes as Record<string, ParamNode | undefined>)['actAsBlend']
 
   const timelineRef = useRef<TimelineHandle>(null)
 
@@ -70,6 +72,7 @@ export const TimelineInputPanel = ({ input, engine }: TimelineInputPanelProps) =
     <>
       <ControlGrid className="mb-xl">
         <NodeContainer nodeId={zoomPxPerSecondNode.id} />
+        {actAsBlendNode && <NodeContainer nodeId={actAsBlendNode.id} />}
       </ControlGrid>
 
       <Timeline

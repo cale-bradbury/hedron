@@ -1,5 +1,6 @@
 import {
   defineOptionNodeConfigs,
+  EngineState,
   HedronEngine,
   InputNode,
   IPlugin,
@@ -76,13 +77,60 @@ const getKeyframeTracks = (tracks: TimelineManagerTrack[]): TimelineManagerKeyfr
   return keyframeTracks
 }
 
+const ACT_AS_BLEND_CONFIG = {
+  nodeType: 'param',
+  key: 'actAsBlend',
+  title: 'Act as Blend',
+  valueType: 'boolean',
+  defaultValue: false,
+} as const
+
+const getTrackIds = (state: EngineState) =>
+  (state.nodes[DEFAULT_TIMELINE_ID]?.childGroups as { trackIds?: string[] } | undefined)
+    ?.trackIds ?? []
+
+const getActAsBlendId = (state: EngineState, input: InputNode) =>
+  input.childGroups.optionNodeIds.find(
+    (id) => (state.nodes[id] as ParamNode | undefined)?.key === ACT_AS_BLEND_CONFIG.key,
+  )
+
+/** For a track on a color, the color and blend ids, whichever of the two it targets */
+const getColorTrackTargets = (state: EngineState, input: InputNode) => {
+  const target = state.nodes[input.targetNodeId]
+  if (target?.nodeType !== 'param') return undefined
+
+  if (target.valueType === 'rgb' && target.inputProxyId) {
+    return { colorId: target.id, blendId: target.inputProxyId }
+  }
+
+  const color = target.parentIds
+    .map((id) => state.nodes[id])
+    .find((node) => node?.nodeType === 'param' && node.inputProxyId === target.id)
+  return color ? { colorId: color.id, blendId: target.id } : undefined
+}
+
+/** Color tracks whose target doesn't match their toggle, as [trackId, targetId] pairs */
+const getPendingRetargets = (state: EngineState) =>
+  getTrackIds(state).flatMap((trackId) => {
+    const input = state.nodes[trackId] as InputNode | undefined
+    const targets = input && getColorTrackTargets(state, input)
+    if (!targets) return []
+
+    const toggleId = getActAsBlendId(state, input)
+    const wanted = toggleId && state.paramValues[toggleId] ? targets.blendId : targets.colorId
+    return wanted === input.targetNodeId ? [] : [[trackId, wanted] as const]
+  })
+
 export class TimelineInput implements IPlugin {
   public readonly id = 'timeline-input'
   public readonly name = 'Timeline Input'
   public readonly iconName = 'timeline'
   public readonly inputType = 'timeline-track'
+  // Colors keyframe r/g/b by default, "Act as Blend" switches a track to the blend
+  public readonly ignoresInputProxy = true
   public readonly description = 'Timeline-based input for automating parameters over time.'
   public timelineManagers: Map<string, TimelineManager> = new Map()
+  private unsubscribeColorSync?: () => void
 
   onEngineInitialize(engine: HedronEngine) {
     engine.addNodeOnce(DEFAULT_TIMELINE_ID, null, {
@@ -93,6 +141,8 @@ export class TimelineInput implements IPlugin {
     })
 
     engine.addOptionNodes(DEFAULT_TIMELINE_ID, TIMELINE_OPTION_NODE_CONFIGS)
+
+    this.syncColorTracks(engine)
 
     this.timelineManagers.set(
       DEFAULT_TIMELINE_ID,
@@ -196,5 +246,32 @@ export class TimelineInput implements IPlugin {
         engine.addChildToNode(newInput.id, 'trackIds', childInput.id)
       })
     }
+
+    if (targetNode.nodeType === 'param' && targetNode.inputProxyId) {
+      engine.addOptionNodes(newInput.id, [ACT_AS_BLEND_CONFIG])
+    }
+  }
+
+  /** Points each color track at the color or its blend, matching its "Act as Blend" toggle */
+  private syncColorTracks(engine: HedronEngine) {
+    this.unsubscribeColorSync?.()
+
+    for (const trackId of getTrackIds(engine.getStoreState())) {
+      const state = engine.getStoreState()
+      const input = state.nodes[trackId] as InputNode | undefined
+      if (input && getColorTrackTargets(state, input) && !getActAsBlendId(state, input)) {
+        engine.addOptionNodes(trackId, [ACT_AS_BLEND_CONFIG])
+      }
+    }
+
+    this.unsubscribeColorSync = engine.getStore().subscribe(
+      getPendingRetargets,
+      (pending) => {
+        for (const [trackId, targetId] of pending) {
+          engine.retargetInput(trackId, targetId)
+        }
+      },
+      { equalityFn: isEqual, fireImmediately: true },
+    )
   }
 }

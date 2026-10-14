@@ -23,6 +23,7 @@ export type IconName =
   | 'folder_open'
   | 'frame_bug'
   | 'fullscreen'
+  | 'gradient'
   | 'image'
   | 'info'
   | 'mood'
