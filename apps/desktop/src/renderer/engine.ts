@@ -1,4 +1,5 @@
-import { HedronEngine } from '@hedron-gl/engine'
+import { HedronEngine, IPlugin } from '@hedron-gl/engine'
+import type { PluginViews } from '@hedron-gl/plugin-sdk'
 import Stats from 'three/examples/jsm/libs/stats.module.js'
 import { Clock } from '@hedron-gl/clock'
 import { MidiInput, MidiInputPanel, MidiGlobalPanel } from '@hedron-gl/midi-input'
@@ -10,6 +11,8 @@ import { SceneControlPlugin, SceneControlGlobalPanel } from '@hedron-gl/scene-co
 import { VideoRenderPlugin, VideoRenderGlobalPanel } from '@hedron-gl/video-render'
 import { ParamPresetsPlugin, ParamPresetsPanel } from '@hedron-gl/param-presets'
 import { videoRenderCallbacks } from '@renderer/utils/renderVideo/videoRenderCallbacks'
+import { registerPluginViews } from '@renderer/plugins/pluginViews'
+import { registerSharedModules } from '@renderer/plugins/sharedModules'
 
 export const performanceMonitor = new Stats()
 
@@ -26,41 +29,42 @@ export const engine = new HedronEngine({
 
 export const engineStore = engine.getStore()
 
+registerSharedModules()
+
+// Built-in plugins go through the same view registry as runtime-loaded ones
+const registerBuiltIn = (plugin: IPlugin, views?: PluginViews) => {
+  engine.registerPlugin(plugin)
+  registerPluginViews(plugin.id, views)
+}
+
 const timelineInput = new TimelineInput()
 const audioInput = new AudioInput(engine)
 
-engine.registerPlugin(new MidiInput(engine))
-engine.registerPlugin(timelineInput)
-engine.registerPlugin(new LFOInput(engine))
-engine.registerPlugin(audioInput)
-engine.registerPlugin(new GamepadInput(engine))
-engine.registerPlugin(new SceneControlPlugin())
-engine.registerPlugin(new VideoRenderPlugin(videoRenderCallbacks))
-engine.registerPlugin(new ParamPresetsPlugin())
+registerBuiltIn(new MidiInput(engine), {
+  globalPanel: MidiGlobalPanel,
+  inputPanel: { midi: MidiInputPanel },
+})
+registerBuiltIn(timelineInput, {
+  globalPanel: TimelineGlobalPanel,
+  inputPanel: { ['timeline-track']: TimelineInputPanel },
+})
+registerBuiltIn(new LFOInput(engine), { inputPanel: { lfo: LFOInputPanel } })
+registerBuiltIn(audioInput, {
+  globalPanel: AudioGlobalPanel,
+  inputPanel: { audio: AudioInputPanel },
+})
+registerBuiltIn(new GamepadInput(engine), {
+  globalPanel: GamepadGlobalPanel,
+  inputPanel: { gamepad: GamepadInputPanel },
+})
+registerBuiltIn(new SceneControlPlugin(), { globalPanel: SceneControlGlobalPanel })
+registerBuiltIn(new VideoRenderPlugin(videoRenderCallbacks), {
+  globalPanel: VideoRenderGlobalPanel,
+})
+registerBuiltIn(new ParamPresetsPlugin(), { sketchCollapsible: ParamPresetsPanel })
 
 // Routes the timeline's audio element into the audio-input analyser for live preview.
 // Wired here, not in either package, so neither depends on the other.
 timelineInput.onAudioElementChange((element) => {
   audioInput.setLiveElementSource(element)
 })
-
-export const pluginViews = {
-  inputPanel: {
-    midi: MidiInputPanel,
-    lfo: LFOInputPanel,
-    audio: AudioInputPanel,
-    gamepad: GamepadInputPanel,
-    ['timeline-track']: TimelineInputPanel,
-  },
-  globalPanel: {
-    ['audio-input']: AudioGlobalPanel,
-    ['midi-input']: MidiGlobalPanel,
-    ['gamepad-input']: GamepadGlobalPanel,
-    ['timeline-input']: TimelineGlobalPanel,
-    ['video-render']: VideoRenderGlobalPanel,
-    ['scene-control']: SceneControlGlobalPanel,
-  },
-  sketchCollapsible: {
-    ['param-presets']: ParamPresetsPanel,
-  },
-}

@@ -2,6 +2,7 @@ import {
   AppStoreProvider,
   Collapsible,
   EngineProvider,
+  HedronErrorBoundary,
   Icon,
   IconName,
   useAppStore,
@@ -15,14 +16,18 @@ import { PerformanceStats } from '@components/PerformanceStats/PerformanceStats'
 import { Viewer } from '@components/Viewer'
 import { WorkArea } from '@components/WorkArea/WorkArea'
 import { appStore } from '@renderer/appStore'
-import { engine, pluginViews } from '@renderer/engine'
+import { engine } from '@renderer/engine'
+import { usePluginViews, viewKey } from '@renderer/plugins/pluginViews'
+import { PluginManager } from '@components/PluginManager/PluginManager'
 
 const PluginGlobalControls = () => {
   const [openById, setOpenById] = useState<Record<string, boolean>>({})
+  const [isManagerOpen, setIsManagerOpen] = useState(false)
+  const globalPanels = usePluginViews((state) => state.globalPanel)
 
   return (
     <div className={c.plugins}>
-      {Object.entries(pluginViews.globalPanel).map(([pluginId, PluginPanel]) => {
+      {Object.entries(globalPanels).map(([pluginId, PluginPanel]) => {
         const enginePlugin = engine.plugins[pluginId]
         const pluginName = enginePlugin?.name ?? pluginId
         const pluginIconName = enginePlugin?.iconName ?? 'extension'
@@ -46,10 +51,26 @@ const PluginGlobalControls = () => {
               }))
             }
           >
-            <PluginPanel engine={engine} />
+            {/* Keyed on the component so a reloaded plugin gets a fresh error boundary */}
+            <HedronErrorBoundary key={viewKey(PluginPanel)}>
+              <PluginPanel engine={engine} />
+            </HedronErrorBoundary>
           </Collapsible>
         )
       })}
+      <Collapsible
+        type="panel"
+        className={c.pluginItem}
+        title={
+          <>
+            <Icon name="extension" /> Plugins
+          </>
+        }
+        isOpen={isManagerOpen}
+        onToggle={setIsManagerOpen}
+      >
+        <PluginManager />
+      </Collapsible>
     </div>
   )
 }
